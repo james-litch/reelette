@@ -1,10 +1,9 @@
 import { Clapperboard } from "lucide-react"
 import Link from "next/link"
 
-import { MovieRequestItem } from "@/components/requests/movie-request-item"
+import { MovieRequests } from "@/components/requests/movie-requests"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
-import { ItemGroup } from "@/components/ui/item"
 import { getRequests } from "@/lib/requests/queries"
 
 import {
@@ -32,16 +31,7 @@ export default async function RoomRequestsPage({
     )
 
   if (requests.length > 0)
-    return (
-      <ItemGroup
-        aria-label="Movie requests"
-        className="grid grid-cols-2 items-start sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
-      >
-        {requests.map((request) => (
-          <MovieRequestItem key={request.id} request={request} />
-        ))}
-      </ItemGroup>
-    )
+    return <MovieRequests key={roomId} requests={requests} />
 
   return (
     <Empty className="min-h-80 border">

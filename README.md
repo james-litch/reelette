@@ -150,6 +150,16 @@ over the poster, newest first, in a responsive portrait grid. Each item's three-
 menu can mark it as watched (moving it to History) or delete it. History items
 can also be deleted.
 
+Filter Requests by requestor and genre using the checkbox dropdowns. Each supports
+multiple selections: movies can match any selected requestor and any selected
+genre. Choose **All requestors** or **All genres** to reset that selection.
+Both filters apply together,
+and **Randomise movie** chooses from the matching unwatched requests.
+The random movie dialog lets you mark the choice as watched or **Pick again**,
+which chooses a different movie when one is available. Watching a choice moves
+it to History. These controls reuse the existing requests and watched action;
+no additional Supabase migration or environment variables are required.
+
 Apply `supabase/migrations/20261105170000_create_movie_requests.sql` with
 `npm run supabase-db-migrate` locally, then `npm run supabase-types` to refresh
 the generated types. For hosted Supabase, apply the same migration using your
