@@ -20,7 +20,7 @@ export async function GET(request: Request) {
 
     if (error) return failureResponse
 
-    const response = NextResponse.redirect(new URL("/account", url.origin))
+    const response = NextResponse.redirect(new URL("/rooms", url.origin))
     response.headers.set("Cache-Control", "private, no-store")
     return response
   } catch {

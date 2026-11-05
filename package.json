@@ -11,8 +11,14 @@
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "supabase-start": "npx supabase start",
-    "supabase-stop": "npx supabase stop",
+    "supabase-start": "supabase start",
+    "supabase-stop": "supabase stop",
+    "supabase-status": "supabase status",
+    "supabase-env": "node scripts/supabase-local.mjs env",
+    "supabase-db-migrate": "supabase migration up",
+    "supabase-db-reset": "supabase db reset",
+    "supabase-db-test": "docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/rooms.sql",
+    "supabase-types": "node scripts/supabase-local.mjs types",
     "supabase-db-pull": "supabase db pull --remote"
   },
   "dependencies": {

@@ -4,57 +4,143 @@ A movie request app built with Next.js, shadcn/ui, and Supabase Auth.
 
 ## Run locally
 
-Install dependencies, copy `.env.example` to `.env.local`, and fill in the two
-values from your Supabase project's **Connect** dialog:
+Install Docker and keep it running. The project's Supabase CLI is installed with
+the npm dependencies. Copy the environment template to the root `.env` file and
+fill in your Google OAuth client ID and secret before starting Supabase:
 
 ```bash
 npm install
-cp .env.example .env.local
+cp .env.example .env
+npm run supabase-start
+npm run supabase-db-migrate
+npm run supabase-env
 npm run dev
 ```
 
 ```dotenv
-NEXT_PUBLIC_SUPABASE_URL=https://YOUR_PROJECT_REF.supabase.co
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=YOUR_PUBLISHABLE_KEY
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID=YOUR_GOOGLE_CLIENT_ID
+SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET=YOUR_GOOGLE_CLIENT_SECRET
 ```
 
-Use the publishable key, not a secret or service-role key. Restart the development
-server after changing environment variables. Without these values, the public
-homepage still renders, but sign-in cannot connect.
+`supabase-env` reads the running local stack and writes only its public API URL
+and publishable key to the ignored `.env.development.local` file. It preserves
+other settings in that file and never copies a secret or service-role key. This
+file overrides `.env.local` during `npm run dev`, so your hosted public values
+can remain in `.env.local` for production builds. Restart Next.js after updating
+environment files. All `.env` files containing credentials are ignored by git.
+
+The app is at `http://localhost:3000`, local Supabase Studio is at
+`http://127.0.0.1:54323`, and the local API is at `http://127.0.0.1:54321`.
+Local users, sessions, and rooms are separate from the hosted project. Sign in
+again after switching environments.
+
+Useful local commands:
+
+```bash
+npm run supabase-status       # Local service URLs and keys; keep output private
+npm run supabase-db-migrate   # Apply pending local migrations without a reset
+npm run supabase-types        # Regenerate and format the public database types
+npm run supabase-db-test      # Run room SQL checks locally; fixtures roll back
+npm run supabase-stop         # Stop local services while preserving database data
+```
+
+`npm run supabase-db-reset` deletes local database data, replays migrations, and
+runs `supabase/seed.sql`. The seed intentionally contains no real users or auth
+sessions; sign in with Google and create rooms through the app. The database
+tests create temporary fixtures themselves.
+
+These commands target the local stack. `npm run supabase-db-pull` explicitly
+reads the linked hosted schema; it does not apply your migrations to the host.
+To deploy schema changes, review `npx supabase db push --remote` separately.
 
 ## Configure Google sign-in
 
-1. Create a Supabase project at [Supabase](https://supabase.com/dashboard).
-2. In [Google Auth Platform](https://console.cloud.google.com/auth/overview),
+1. In [Google Auth Platform](https://console.cloud.google.com/auth/overview),
    configure the app's branding and audience. Add your Google account as a test
    user if the app is in testing. Enable the `openid`, `userinfo.email`, and
    `userinfo.profile` scopes.
-3. Create an OAuth client with **Web application** as its type. Set the authorized
-   JavaScript origin to `http://localhost:3000`. Set the authorized redirect URI to
-   your Supabase project's callback URL, copied from **Authentication → Sign In /
-   Providers → Google** (usually
-   `https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback`).
-4. In Supabase's Google provider settings, enable Google and save that OAuth
-   client ID and client secret. The Google client secret belongs in Supabase's
-   provider settings; the app only needs the two public values above.
-5. Under **Authentication → URL Configuration**, set the Site URL to
-   `http://localhost:3000` and add `http://localhost:3000/auth/callback` to the
-   redirect allow list.
-6. Open the app and click **Sign in with Google**. A successful sign-in takes you
-   to `/account`, where you can see your email and sign out.
+2. Create an OAuth client with **Web application** as its type. Set the authorized
+   JavaScript origin to `http://localhost:3000`. Add
+   `http://127.0.0.1:54321/auth/v1/callback` as an authorized redirect URI.
+   Google redirects to Supabase here; Supabase then redirects to the app's
+   `/auth/callback` route to exchange the PKCE code.
+3. Put the client ID and secret in the root `.env` file as shown above.
+   `supabase/config.toml` enables Google and reads those variables. It also allows
+   `http://localhost:3000/auth/callback` and
+   `http://127.0.0.1:3000/auth/callback` as app redirects.
+4. After changing credentials or `config.toml`, run `npm run supabase-stop`
+   followed by `npm run supabase-start` to reload the Auth service.
+5. Open the app and click **Sign in with Google**. A successful sign-in takes you
+   to `/rooms`.
 
-For deployment, add the same Supabase environment variables to your host, use your
-production URL as Supabase's Site URL, add
-`https://YOUR_DOMAIN/auth/callback` to Supabase's redirect allow list, and add your
-production origin to the Google OAuth client. Keep the Supabase callback URL as
-Google's authorized redirect URI.
+For hosted Supabase, use the project's public URL and publishable key as
+`NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` in your
+deployment host. Enable Google under **Authentication → Sign In / Providers**
+and save the OAuth credentials there. Local `config.toml` settings do not
+configure hosted Auth. Set the production Site URL and allow
+`https://YOUR_DOMAIN/auth/callback` in **Authentication → URL Configuration**.
+Add your production origin and the hosted Supabase callback
+`https://YOUR_PROJECT_REF.supabase.co/auth/v1/callback` to the Google OAuth client.
+Keep the local callback registered too when using the same client locally.
 
 The app uses a PKCE code exchange and cookie-based sessions. `proxy.ts` refreshes
 sessions before server rendering; `/account` independently verifies the user
 with Supabase Auth. The homepage and header reflect the signed-in session.
 
 References: [Supabase SSR setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client),
-[Google provider setup](https://supabase.com/docs/guides/auth/social-sign-in/auth-google).
+[Google provider setup](https://supabase.com/docs/guides/auth/social-sign-in/auth-google),
+[local config and secrets](https://supabase.com/docs/guides/local-development/managing-config).
+
+## Enable rooms in Supabase
+
+Locally, `npm run supabase-db-migrate` applies the room schema and RLS policies
+from `supabase/migrations`. The migration is also applied on a fresh start or
+local database reset. No hosted changes are made by these local commands.
+
+For an existing hosted project that does not have the rooms migration yet,
+apply it through your migration deployment workflow or run it once manually:
+
+1. Open your Supabase project's **SQL Editor** and create a new query.
+2. Paste the complete contents of
+   [`supabase/migrations/20261105143000_create_rooms.sql`](supabase/migrations/20261105143000_create_rooms.sql)
+   and run it once. The transaction creates the table, index, permissions, and
+   row-level security policies together.
+3. Confirm that **Table Editor → rooms** contains `id`, `owner_id`, `name`, and
+   `created_at`, with RLS enabled.
+4. Sign in to the app, click **Create Room**, enter a name, and submit. You should
+   land at `/rooms/<room-id>`. Create a second room to try switching with the
+   room-title dropdown.
+
+Each room gets a UUID and creation timestamp from PostgreSQL. The app trims room
+names and accepts 1–80 characters; database constraints enforce the length and
+reject blank or space-padded names. `owner_id` references `auth.users`, and the
+server derives it from the authenticated session. Deleting the owning auth user
+also deletes their rooms.
+
+The `authenticated` role can insert and select rooms. RLS allows those operations
+only when `owner_id = auth.uid()`. Anonymous users have no room access, and room
+updates and deletes are not granted. These protections apply to direct Data API
+requests as well as requests from this app. See Supabase's
+[row-level security guide](https://supabase.com/docs/guides/database/postgres/row-level-security).
+
+Your existing public Supabase environment variables and Google sign-in settings
+are sufficient. No service-role key, auth trigger, or separate profiles table is
+required. Rooms are private to their creator; invitations and shared membership
+would need an additional membership table and corresponding RLS policies.
+
+The homepage now offers **Create Room** and **My Rooms** to signed-in users.
+**My Rooms** opens the most recently created room. If you have no rooms yet, it
+shows a first-room prompt. Each room's title dropdown lists your rooms and offers
+**Create a room**. Movie requests are not part of this change.
+
+The generated schema is in `lib/supabase/database.types.ts`. After applying local
+schema changes, run `npm run supabase-types` and commit the updated types.
+The SQL regression checks in
+[`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) verify ownership, anonymous
+access, name constraints, and denied updates/deletes. Run them in a test database
+after the migration with `npm run supabase-db-test`; their fixtures are wrapped
+in a transaction and rolled back. The test command uses `psql` inside the local
+`supabase_db_reelette` Docker container, so no host PostgreSQL install is needed.
 
 ## Checks
 

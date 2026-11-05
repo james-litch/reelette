@@ -2,7 +2,9 @@ import Link from "next/link"
 
 import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
 import { MoviePosters } from "@/components/home/movie-posters"
-import { buttonVariants } from "@/components/ui/button"
+import { CreateRoomDialog } from "@/components/rooms/create-room-dialog"
+import { Button, buttonVariants } from "@/components/ui/button"
+import { Plus } from "lucide-react"
 import { getUser } from "@/lib/supabase/user"
 import { cn } from "@/lib/utils"
 
@@ -31,15 +33,25 @@ export default async function Page({
         </p>
 
         {user ? (
-          <Link
-            href="/account"
-            className={cn(
-              buttonVariants({ size: "lg" }),
-              "mt-8 w-full max-w-xs"
-            )}
-          >
-            My Account
-          </Link>
+          <div className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:max-w-sm sm:flex-row">
+            <CreateRoomDialog
+              trigger={
+                <Button size="lg" className="flex-1">
+                  <Plus data-icon="inline-start" aria-hidden="true" />
+                  Create Room
+                </Button>
+              }
+            />
+            <Link
+              href="/rooms"
+              className={cn(
+                buttonVariants({ size: "lg", variant: "outline" }),
+                "flex-1"
+              )}
+            >
+              My Rooms
+            </Link>
+          </div>
         ) : (
           <GoogleSignInButton
             callbackError={params.auth_error === "callback"}
