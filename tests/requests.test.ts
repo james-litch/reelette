@@ -13,6 +13,10 @@ const mocks = vi.hoisted(() => ({
   getMovie: vi.fn(),
   revalidatePath: vi.fn(),
   order: vi.fn(),
+  update: vi.fn(),
+  delete: vi.fn(),
+  is: vi.fn(),
+  not: vi.fn(),
 }))
 
 vi.mock("server-only", () => ({}))
@@ -24,6 +28,8 @@ vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 import {
   createRequest,
   getRequestors,
+  markRequestWatched,
+  deleteRequest,
 } from "@/app/rooms/[roomId]/requests-actions"
 import { getRequests } from "@/lib/requests/queries"
 
@@ -34,6 +40,10 @@ const query = {
   maybeSingle: mocks.maybeSingle,
   insert: mocks.insert,
   order: mocks.order,
+  update: mocks.update,
+  delete: mocks.delete,
+  is: mocks.is,
+  not: mocks.not,
 }
 
 beforeEach(() => {
@@ -52,6 +62,10 @@ beforeEach(() => {
   mocks.select.mockReturnValue(query)
   mocks.eq.mockReturnValue(query)
   mocks.order.mockReturnValue(query)
+  mocks.update.mockReturnValue(query)
+  mocks.delete.mockReturnValue(query)
+  mocks.is.mockReturnValue(query)
+  mocks.not.mockReturnValue(query)
   mocks.maybeSingle.mockResolvedValue({ data: { id: roomId }, error: null })
   mocks.insert.mockResolvedValue({ error: null })
   mocks.rpc.mockResolvedValue({ data: [{ name: "Jamie" }], error: null })
@@ -218,11 +232,90 @@ describe("reading requests and requestors", () => {
     })
     expect(mocks.eq).toHaveBeenCalledWith("room_id", roomId)
     expect(mocks.order).toHaveBeenCalledWith("created_at", { ascending: false })
+    expect(mocks.is).toHaveBeenCalledWith("watched_at", null)
+  })
+
+  it("loads watched movies separately with most recently watched first", async () => {
+    mocks.order
+      .mockReturnValueOnce(query)
+      .mockResolvedValueOnce({ data: [], error: null })
+    expect(await getRequests(roomId, true)).toEqual({
+      requests: [],
+      error: null,
+    })
+    expect(mocks.not).toHaveBeenCalledWith("watched_at", "is", null)
+    expect(mocks.order).toHaveBeenCalledWith("watched_at", { ascending: false })
   })
 
   it("does not read requests without authentication", async () => {
     mocks.getUser.mockResolvedValueOnce(null)
     expect(await getRequests(roomId)).toHaveProperty("error")
     expect(mocks.from).not.toHaveBeenCalled()
+  })
+})
+
+describe.each([
+  ["watch", markRequestWatched],
+  ["delete", deleteRequest],
+] as const)("managing requests: %s", (action, run) => {
+  const requestId = "22222222-2222-4222-8222-222222222222"
+
+  it("scopes mutations to the request and room, then refreshes requests and history", async () => {
+    expect(await run(roomId, requestId)).toEqual({ success: true })
+    expect(mocks.eq).toHaveBeenCalledWith("id", requestId)
+    expect(mocks.eq).toHaveBeenCalledWith("room_id", roomId)
+    if (action === "watch") {
+      expect(mocks.update).toHaveBeenCalledWith({
+        watched_at: expect.stringMatching(/^\d{4}-/),
+      })
+      expect(mocks.is).toHaveBeenCalledWith("watched_at", null)
+      expect(mocks.delete).not.toHaveBeenCalled()
+    } else {
+      expect(mocks.delete).toHaveBeenCalledOnce()
+      expect(mocks.update).not.toHaveBeenCalled()
+    }
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(`/rooms/${roomId}`)
+    expect(mocks.revalidatePath).toHaveBeenCalledWith(
+      `/rooms/${roomId}/history`
+    )
+  })
+
+  it("rejects invalid IDs without accessing the database", async () => {
+    expect(await run("bad", requestId)).toHaveProperty("error")
+    expect(await run(roomId, "bad")).toHaveProperty("error")
+    expect(mocks.createClient).not.toHaveBeenCalled()
+  })
+
+  it.each([null, { id: "unverified" }])(
+    "requires verified authentication",
+    async (user) => {
+      mocks.verifyUser.mockResolvedValueOnce({
+        data: { user },
+        error: user ? new Error("invalid") : null,
+      })
+      expect(await run(roomId, requestId)).toHaveProperty("error")
+      expect(mocks.from).not.toHaveBeenCalled()
+    }
+  )
+
+  it("reports missing or unauthorized rows without claiming success", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({ data: null, error: null })
+    expect(await run(roomId, requestId)).toEqual({
+      error: "This request is no longer available.",
+    })
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
+  })
+
+  it("handles database and network failures without leaking details", async () => {
+    mocks.maybeSingle.mockResolvedValueOnce({
+      data: null,
+      error: { message: "private" },
+    })
+    const result = await run(roomId, requestId)
+    expect(result).toHaveProperty("error")
+    expect(JSON.stringify(result)).not.toContain("private")
+    mocks.createClient.mockRejectedValueOnce(new Error("private"))
+    expect(await run(roomId, requestId)).toEqual(result)
+    expect(mocks.revalidatePath).not.toHaveBeenCalled()
   })
 })

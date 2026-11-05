@@ -20,6 +20,7 @@ export type Database = {
           room_id: string
           title: string
           tmdb_id: number
+          watched_at: string | null
         }
         ComputedFields: never
         Insert: {
@@ -32,6 +33,7 @@ export type Database = {
           room_id: string
           title: string
           tmdb_id: number
+          watched_at?: string | null
         }
         Update: {
           created_at?: string
@@ -43,6 +45,7 @@ export type Database = {
           room_id?: string
           title?: string
           tmdb_id?: number
+          watched_at?: string | null
         }
         Relationships: [
           {

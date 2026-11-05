@@ -33,7 +33,10 @@ export default async function RoomRequestsPage({
 
   if (requests.length > 0)
     return (
-      <ItemGroup aria-label="Movie requests" className="mx-auto max-w-xl">
+      <ItemGroup
+        aria-label="Movie requests"
+        className="grid grid-cols-2 items-start sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5"
+      >
         {requests.map((request) => (
           <MovieRequestItem key={request.id} request={request} />
         ))}

@@ -2,6 +2,7 @@
 
 import { ImageOff } from "lucide-react"
 import Image from "next/image"
+import type { ReactNode } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -14,12 +15,14 @@ export function MoviePoster({
   size = "w185",
   className,
   sizes = "64px",
+  children,
 }: {
   path: string | null
   title: string
   size?: PosterSize
   className?: string
   sizes?: string
+  children?: ReactNode
 }) {
   const src = path ? `https://image.tmdb.org/t/p/${size}${path}` : null
 
@@ -44,6 +47,7 @@ export function MoviePoster({
           <span className="sr-only">No poster available</span>
         </>
       )}
+      {children}
     </div>
   )
 }

@@ -136,7 +136,7 @@ shows a first-room prompt. Each room's title dropdown lists your rooms and offer
 Each room has shared **Requests**, **Search**, and **History** tabs. Requests is
 at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at
 `/rooms/<room-id>/history`. The room selector and access checks are shared by
-all three routes. History currently shows an empty state.
+all three routes. History shows movies marked as watched, most recently watched first.
 
 Search results have an **Add** icon that opens an **Add request** dialog. Select
 a previous requestor or type a new name and choose **Add “name”**, then save.
@@ -145,15 +145,21 @@ deduplication. The Search page loads these names once and reuses them when the
 dialog is reopened, adding newly saved requestors to its local list. Refreshing
 or revisiting the page reloads the names. New names are only persisted when the
 movie request is saved.
-The Requests tab displays each movie's poster, title, year, genre badges, and
-requestor name, newest first.
+The Requests tab displays each movie's poster, title, year, and a requestor badge
+over the poster, newest first, in a responsive portrait grid. Each item's three-dot
+menu can mark it as watched (moving it to History) or delete it. History items
+can also be deleted.
 
 Apply `supabase/migrations/20261105170000_create_movie_requests.sql` with
 `npm run supabase-db-migrate` locally, then `npm run supabase-types` to refresh
 the generated types. For hosted Supabase, apply the same migration using your
 deployment workflow or SQL Editor. It creates `movie_requests` and the
 `get_room_requestors` function. RLS permits reads and inserts only for the room
-owner; anonymous access, updates, and deletes are not granted. The names
+owner. Also apply `supabase/migrations/20261105190000_manage_movie_requests.sql`
+locally with `npm run supabase-db-migrate` and to hosted Supabase through your
+deployment workflow. It adds `watched_at`, owner-only deletes, and owner-only
+updates restricted to the watched timestamp. Movie metadata and the room cannot
+be changed. Anonymous access is not granted. The names
 function uses invoker security, so the same RLS applies to suggestions.
 No new environment variables are needed. The server verifies ownership and
 fetches movie details from TMDB before saving a snapshot with the request.
@@ -180,8 +186,8 @@ schema changes, run `npm run supabase-types` and commit the updated types.
 The SQL regression checks in
 [`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) and
 [`supabase/tests/movie-requests.sql`](supabase/tests/movie-requests.sql) verify
-ownership, anonymous access, name constraints, requestor suggestions, and denied
-updates/deletes. Run them in a test database
+ownership, anonymous access, name constraints, requestor suggestions, watched
+status, deletion, and immutable movie metadata. Run them in a test database
 after the migration with `npm run supabase-db-test`; their fixtures are wrapped
 in a transaction and rolled back. The test command uses `psql` inside the local
 `supabase_db_reelette` Docker container, so no host PostgreSQL install is needed.

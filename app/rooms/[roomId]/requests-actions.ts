@@ -6,6 +6,7 @@ import { isRoomId } from "@/lib/rooms/types"
 import {
   REQUESTOR_NAME_MAX_LENGTH,
   type CreateRequestState,
+  type RequestActionResult,
 } from "@/lib/requests/types"
 import { createClient } from "@/lib/supabase/server"
 import { getMovie } from "@/lib/tmdb/movie"
@@ -99,4 +100,64 @@ export async function createRequest(
 
   revalidatePath(`/rooms/${roomId}`)
   return { success: true }
+}
+
+async function manageRequest(
+  roomId: string,
+  requestId: string,
+  action: "watch" | "delete"
+): Promise<RequestActionResult> {
+  const failure = {
+    error:
+      action === "watch"
+        ? "We couldn’t mark this movie as watched. Please try again."
+        : "We couldn’t delete this request. Please try again.",
+  }
+  if (
+    typeof roomId !== "string" ||
+    !isRoomId(roomId) ||
+    typeof requestId !== "string" ||
+    !isRoomId(requestId)
+  )
+    return failure
+
+  try {
+    const supabase = await createClient({ canWriteCookies: true })
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user)
+      return { error: "Please sign in to manage requests." }
+
+    // RLS checks room ownership. Both IDs scope the mutation to this room.
+    const table = supabase.from("movie_requests")
+    const mutation =
+      action === "watch"
+        ? table
+            .update({ watched_at: new Date().toISOString() })
+            .is("watched_at", null)
+        : table.delete()
+    const { data, error } = await mutation
+      .eq("id", requestId)
+      .eq("room_id", roomId)
+      .select("id")
+      .maybeSingle()
+    if (error) return failure
+    if (!data) return { error: "This request is no longer available." }
+  } catch {
+    return failure
+  }
+
+  revalidatePath(`/rooms/${roomId}`)
+  revalidatePath(`/rooms/${roomId}/history`)
+  return { success: true }
+}
+
+export async function markRequestWatched(roomId: string, requestId: string) {
+  return manageRequest(roomId, requestId, "watch")
+}
+
+export async function deleteRequest(roomId: string, requestId: string) {
+  return manageRequest(roomId, requestId, "delete")
 }

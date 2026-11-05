@@ -68,10 +68,25 @@ begin
   exception when insufficient_privilege then null;
   end;
   begin
-    delete from public.movie_requests;
-    raise exception 'Deletes should not be granted';
+    update public.movie_requests set room_id = current_setting('test.second_room')::uuid;
+    raise exception 'Moving requests between rooms must not be granted';
   exception when insufficient_privilege then null;
   end;
+
+  update public.movie_requests set watched_at = now()
+    where room_id = current_setting('test.other_room')::uuid;
+  if found then raise exception 'Must not mark another owner''s movie watched'; end if;
+  delete from public.movie_requests where room_id = current_setting('test.other_room')::uuid;
+  if found then raise exception 'Must not delete another owner''s movie'; end if;
+
+  update public.movie_requests set watched_at = now()
+    where room_id = current_setting('test.room')::uuid and tmdb_id = 157336;
+  if not found then raise exception 'Owner must be able to mark a movie watched'; end if;
+  if (select count(*) from public.movie_requests where watched_at is not null) <> 1 then
+    raise exception 'Expected one watched request';
+  end if;
+  delete from public.movie_requests where room_id = current_setting('test.room')::uuid and tmdb_id = 2;
+  if not found then raise exception 'Owner must be able to delete a request'; end if;
 end $$;
 
 reset role;
@@ -93,6 +108,16 @@ begin
   begin
     perform 1 from public.get_room_requestors(current_setting('test.room')::uuid);
     raise exception 'Anonymous name lookups should fail';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    update public.movie_requests set watched_at = now();
+    raise exception 'Anonymous updates should fail';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    delete from public.movie_requests;
+    raise exception 'Anonymous deletes should fail';
   exception when insufficient_privilege then null;
   end;
 end $$;
