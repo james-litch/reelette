@@ -10,7 +10,10 @@
     "lint": "eslint",
     "format": "prettier --write \"**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "supabase-start": "npx supabase start",
+    "supabase-stop": "npx supabase stop",
+    "supabase-db-pull": "supabase db pull --remote"
   },
   "dependencies": {
     "@base-ui/react": "^1.9.0",
@@ -36,6 +39,7 @@
     "eslint-config-next": "16.4.3",
     "prettier": "^3.9.10",
     "prettier-plugin-tailwindcss": "^0.8.1",
+    "supabase": "^3.0.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^4.1.12"
