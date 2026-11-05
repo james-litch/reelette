@@ -1,8 +1,18 @@
-import { MoviePosters } from "@/components/home/movie-posters"
-import { Button } from "@/components/ui/button"
-import IconGoogle from "@/components/ui/icon-google"
+import Link from "next/link"
 
-export default function Page() {
+import { GoogleSignInButton } from "@/components/auth/google-sign-in-button"
+import { MoviePosters } from "@/components/home/movie-posters"
+import { buttonVariants } from "@/components/ui/button"
+import { getUser } from "@/lib/supabase/user"
+import { cn } from "@/lib/utils"
+
+export default async function Page({
+  searchParams,
+}: {
+  searchParams: Promise<{ auth_error?: string }>
+}) {
+  const [user, params] = await Promise.all([getUser(), searchParams])
+
   return (
     <main className="flex min-h-[calc(100svh-4rem)] flex-col items-center overflow-hidden px-6 pt-12 sm:pt-20 lg:pt-24">
       <section
@@ -20,15 +30,21 @@ export default function Page() {
           Create a room, add requests, and decide what to watch together.
         </p>
 
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          className="mt-8 w-full max-w-xs gap-3"
-        >
-          <IconGoogle />
-          Sign in with Google
-        </Button>
+        {user ? (
+          <Link
+            href="/account"
+            className={cn(
+              buttonVariants({ size: "lg" }),
+              "mt-8 w-full max-w-xs"
+            )}
+          >
+            My Account
+          </Link>
+        ) : (
+          <GoogleSignInButton
+            callbackError={params.auth_error === "callback"}
+          />
+        )}
 
         <MoviePosters />
       </section>
