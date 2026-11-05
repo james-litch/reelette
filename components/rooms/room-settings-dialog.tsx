@@ -43,13 +43,20 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { RoomMembers } from "@/components/rooms/room-members"
 import {
   ROOM_NAME_MAX_LENGTH,
   type Room,
   type RoomSettingsState,
 } from "@/lib/rooms/types"
 
-export function RoomSettingsDialog({ room }: { room: Room }) {
+export function RoomSettingsDialog({
+  room,
+  isOwner,
+}: {
+  room: Room
+  isOwner: boolean
+}) {
   const id = useId()
   const [open, setOpen] = useState(false)
   const [tab, setTab] = useState("general")
@@ -133,9 +140,20 @@ export function RoomSettingsDialog({ room }: { room: Room }) {
             >
               General
             </TabsTrigger>
-            <TabsTrigger value="danger" disabled={pending && tab !== "danger"}>
-              Danger
+            <TabsTrigger
+              value="members"
+              disabled={pending && tab !== "members"}
+            >
+              Members
             </TabsTrigger>
+            {isOwner && (
+              <TabsTrigger
+                value="danger"
+                disabled={pending && tab !== "danger"}
+              >
+                Danger
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="general">
             <form action={saveSettings} className="flex flex-col gap-6">
@@ -218,63 +236,79 @@ export function RoomSettingsDialog({ room }: { room: Room }) {
               </DialogFooter>
             </form>
           </TabsContent>
-          <TabsContent value="danger" className="flex flex-col gap-6">
-            <FieldSet>
-              <FieldLegend>Delete room</FieldLegend>
-              <FieldDescription>
-                Permanently delete this room, all its movie requests, and its
-                watched history. This cannot be undone.
-              </FieldDescription>
-              <AlertDialog
-                open={confirmDelete}
-                onOpenChange={(next) => {
-                  if (!pending) setConfirmDelete(next)
-                }}
-              >
-                <AlertDialogTrigger
-                  render={<Button variant="destructive" className="w-fit" />}
-                >
-                  <Trash2 data-icon="inline-start" aria-hidden="true" />
-                  Delete room
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Delete {room.name}?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      All movie requests and watched history in this room will
-                      be permanently deleted.
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  {deleteError && <FieldError>{deleteError}</FieldError>}
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={pending}>
-                      Cancel
-                    </AlertDialogCancel>
-                    <AlertDialogAction
-                      variant="destructive"
-                      disabled={pending}
-                      aria-busy={pending}
-                      onClick={removeRoom}
-                    >
-                      {pending && (
-                        <LoaderCircle
-                          data-icon="inline-start"
-                          className="animate-spin"
-                          aria-hidden="true"
-                        />
-                      )}
-                      {pending ? "Deleting…" : "Permanently delete room"}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
-            </FieldSet>
-            <DialogFooter>
-              <DialogClose render={<Button variant="outline" />}>
-                Close
-              </DialogClose>
-            </DialogFooter>
+          <TabsContent value="members" keepMounted>
+            <div className="flex flex-col gap-6">
+              <RoomMembers
+                roomId={room.id}
+                isOwner={isOwner}
+                active={open && tab === "members"}
+              />
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>
+                  Close
+                </DialogClose>
+              </DialogFooter>
+            </div>
           </TabsContent>
+          {isOwner && (
+            <TabsContent value="danger" className="flex flex-col gap-6">
+              <FieldSet>
+                <FieldLegend>Delete room</FieldLegend>
+                <FieldDescription>
+                  Permanently delete this room, all its movie requests, and its
+                  watched history. This cannot be undone.
+                </FieldDescription>
+                <AlertDialog
+                  open={confirmDelete}
+                  onOpenChange={(next) => {
+                    if (!pending) setConfirmDelete(next)
+                  }}
+                >
+                  <AlertDialogTrigger
+                    render={<Button variant="destructive" className="w-fit" />}
+                  >
+                    <Trash2 data-icon="inline-start" aria-hidden="true" />
+                    Delete room
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete {room.name}?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        All movie requests and watched history in this room will
+                        be permanently deleted.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    {deleteError && <FieldError>{deleteError}</FieldError>}
+                    <AlertDialogFooter>
+                      <AlertDialogCancel disabled={pending}>
+                        Cancel
+                      </AlertDialogCancel>
+                      <AlertDialogAction
+                        variant="destructive"
+                        disabled={pending}
+                        aria-busy={pending}
+                        onClick={removeRoom}
+                      >
+                        {pending && (
+                          <LoaderCircle
+                            data-icon="inline-start"
+                            className="animate-spin"
+                            aria-hidden="true"
+                          />
+                        )}
+                        {pending ? "Deleting…" : "Permanently delete room"}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </FieldSet>
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>
+                  Close
+                </DialogClose>
+              </DialogFooter>
+            </TabsContent>
+          )}
         </Tabs>
       </DialogContent>
     </Dialog>

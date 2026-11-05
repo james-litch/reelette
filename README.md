@@ -118,20 +118,21 @@ server derives it from the authenticated session. Deleting the owning auth user
 also deletes their rooms.
 
 The `authenticated` role can insert, select, update settings, and delete rooms.
-RLS allows those operations only when `owner_id = auth.uid()`. Updates are
-restricted to `name` and `exclude_last_requestor`; room identity and ownership
-cannot be changed. Anonymous users have no room access. These protections apply to direct Data API
-requests as well as requests from this app. See Supabase's
+RLS allows owners and joined members to read rooms and update `name` and
+`exclude_last_requestor`. Only the owner can delete a room or invite people.
+Room identity and ownership cannot be changed. Anonymous users have no room
+access. These protections apply to direct Data API requests as well as requests
+from this app. See Supabase's
 [row-level security guide](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
 Your existing public Supabase environment variables and Google sign-in settings
 are sufficient. No service-role key, auth trigger, or separate profiles table is
-required. Rooms are private to their creator; invitations and shared membership
-would need an additional membership table and corresponding RLS policies.
+required. Rooms are private to their owner and users who have joined through
+an invite. Knowing a room ID does not grant access.
 
 The homepage now offers **Create Room** and **My Rooms** to signed-in users.
 **My Rooms** opens the most recently created room. If you have no rooms yet, it
-shows a first-room prompt. Each room's title dropdown lists your rooms and offers
+shows a first-room prompt. Each room's title dropdown lists owned and joined rooms and offers
 **Create a room**.
 
 The gear button beside the room title opens **Room settings** on every room tab.
@@ -143,7 +144,7 @@ the request grid stays visible. Before the first watched movie, nobody is exclud
 If no eligible movies remain, change the filters or disable the setting. History
 load failures disable random selection until a successful refresh.
 
-**Danger** offers room deletion with a separate confirmation. Deleting a room
+**Danger** is visible only to the owner and offers room deletion with a separate confirmation. Deleting a room
 permanently removes its requests and watched history, then opens **My Rooms**
 (or the first-room prompt when none remain).
 
@@ -152,6 +153,39 @@ Apply `supabase/migrations/20261105200000_room_settings.sql` locally with
 migration to hosted Supabase through your deployment workflow. It adds the
 saved exclusion preference, owner-only settings updates and deletion, and an
 index for the latest watched request. No new environment variables are needed.
+
+**Members** lists everyone in the room, with **Owner** or **Member** badges.
+Names come from Google profile metadata, falling back to the account's email
+name (without the domain). The list is available to both owners and members
+and refreshes when the tab opens.
+
+Owners can choose **Create invite link** under Members, then copy and share the
+link themselves. Anyone with the link can sign in with Google, see the room name,
+and choose **Join room**. Links work for multiple recipients, expire after one
+hour, and are replaced by **Create new invite link**. Replacing or expiring a
+link does not remove existing members. Repeated joins are safe. Deleted rooms,
+expired links, and replaced links cannot be joined.
+
+Joined members can add and delete movies, mark them as watched, view history,
+randomise the selection, rename the room, and change its random-selection setting.
+They cannot invite other users or delete the room. Supabase enforces these
+permissions even for direct API calls. Memberships and invite tokens cannot be
+read or written directly through the Data API; checked database functions handle
+joining, link rotation, and the participant list. Deleting a room also removes
+its memberships and invite link.
+
+Apply `supabase/migrations/20261105210000_room_members_and_invites.sql` locally
+with `npm run supabase-db-migrate`, followed by `npm run supabase-types`. Apply
+all pending migrations to hosted Supabase before deploying this app update.
+The follow-up `supabase/migrations/20261105220000_one_hour_room_invites.sql`
+sets a one-hour lifetime for new and replacement links and shortens existing
+seven-day links to one hour from their original issue time. Older links expire
+immediately; existing memberships remain valid.
+No new environment variables, service-role key, email service, or OAuth redirect
+allowlist changes are needed. A short-lived HttpOnly cookie remembers the invite
+while Google sign-in uses the existing `/auth/callback` URL; the callback only
+accepts a validated invite ID and clears the cookie after use. Invite pages are
+excluded from indexing and use a no-referrer policy.
 
 Each room has shared **Requests**, **Search**, and **History** tabs. Requests is
 at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at
@@ -184,14 +218,14 @@ Apply `supabase/migrations/20261105170000_create_movie_requests.sql` with
 `npm run supabase-db-migrate` locally, then `npm run supabase-types` to refresh
 the generated types. For hosted Supabase, apply the same migration using your
 deployment workflow or SQL Editor. It creates `movie_requests` and the
-`get_room_requestors` function. RLS permits reads and inserts only for the room
-owner. Also apply `supabase/migrations/20261105190000_manage_movie_requests.sql`
+`get_room_requestors` function. The membership migration below extends request RLS to owners and joined
+members. Also apply `supabase/migrations/20261105190000_manage_movie_requests.sql`
 locally with `npm run supabase-db-migrate` and to hosted Supabase through your
 deployment workflow. It adds `watched_at`, owner-only deletes, and owner-only
 updates restricted to the watched timestamp. Movie metadata and the room cannot
 be changed. Anonymous access is not granted. The names
 function uses invoker security, so the same RLS applies to suggestions.
-No new environment variables are needed. The server verifies ownership and
+No new environment variables are needed. The server verifies room access and
 fetches movie details from TMDB before saving a snapshot with the request.
 
 The Search tab uses `tmdb-ts` through `GET /api/movies/search?query=<title>&page=1`.
@@ -215,9 +249,11 @@ The generated schema is in `lib/supabase/database.types.ts`. After applying loca
 schema changes, run `npm run supabase-types` and commit the updated types.
 The SQL regression checks in
 [`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) and
-[`supabase/tests/movie-requests.sql`](supabase/tests/movie-requests.sql) verify
+[`supabase/tests/movie-requests.sql`](supabase/tests/movie-requests.sql), and
+[`supabase/tests/room-members.sql`](supabase/tests/room-members.sql) verify
 ownership, anonymous access, name constraints, requestor suggestions, watched
-status, deletion, and immutable movie metadata. Run them in a test database
+status, deletion, immutable movie metadata, invite expiry/rotation, and member
+permissions. Run them in a test database
 after the migration with `npm run supabase-db-test`; their fixtures are wrapped
 in a transaction and rolled back. The test command uses `psql` inside the local
 `supabase_db_reelette` Docker container, so no host PostgreSQL install is needed.

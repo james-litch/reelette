@@ -17,8 +17,7 @@ export const getRooms = cache(
       const supabase = await createClient()
       const { data, error } = await supabase
         .from("rooms")
-        .select("id, name, created_at, exclude_last_requestor")
-        .eq("owner_id", user.id)
+        .select("id, name, created_at, exclude_last_requestor, owner_id")
         .order("created_at", { ascending: false })
         .order("id", { ascending: false })
 
@@ -42,8 +41,7 @@ export const getRoom = cache(
       const supabase = await createClient()
       const { data, error } = await supabase
         .from("rooms")
-        .select("id, name, created_at, exclude_last_requestor")
-        .eq("owner_id", user.id)
+        .select("id, name, created_at, exclude_last_requestor, owner_id")
         .eq("id", id)
         .maybeSingle()
 

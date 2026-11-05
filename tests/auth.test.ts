@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
     signOut: vi.fn(),
   },
   createClient: vi.fn(),
+  cookieGet: vi.fn(),
   revalidatePath: vi.fn(),
   redirect: vi.fn((path: string) => {
     throw new Error(`redirect:${path}`)
@@ -19,6 +20,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("server-only", () => ({}))
 vi.mock("@/lib/supabase/server", () => ({ createClient: mocks.createClient }))
 vi.mock("@supabase/ssr", () => ({ createServerClient: vi.fn() }))
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ get: mocks.cookieGet }),
+}))
 vi.mock("next/cache", () => ({ revalidatePath: mocks.revalidatePath }))
 vi.mock("next/navigation", () => ({ redirect: mocks.redirect }))
 
@@ -30,6 +34,7 @@ import { getUser } from "@/lib/supabase/user"
 
 beforeEach(() => {
   vi.clearAllMocks()
+  mocks.cookieGet.mockReturnValue(undefined)
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://example.supabase.co")
   vi.stubEnv("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY", "sb_publishable_test")
   mocks.createClient.mockResolvedValue({ auth: mocks.auth })
@@ -40,6 +45,44 @@ beforeEach(() => {
 })
 
 describe("OAuth callback", () => {
+  it("returns to the remembered invite after sign-in and clears the continuation cookie", async () => {
+    const token = "11111111-1111-4111-8111-111111111111"
+    mocks.cookieGet.mockReturnValue({ value: token })
+    const response = await GET(
+      new Request("https://reelette.example/auth/callback?code=valid-code")
+    )
+    expect(response.headers.get("location")).toBe(
+      `https://reelette.example/invites/${token}`
+    )
+    expect(response.headers.get("set-cookie")).toContain(
+      "reelette-room-invite=;"
+    )
+    expect(response.headers.get("set-cookie")).toContain("Max-Age=0")
+  })
+  it("keeps a cancelled invite sign-in on the invite page for retry", async () => {
+    const token = "11111111-1111-4111-8111-111111111111"
+    mocks.cookieGet.mockReturnValue({ value: token })
+    const response = await GET(
+      new Request("https://reelette.example/auth/callback?error=access_denied")
+    )
+    expect(response.headers.get("location")).toBe(
+      `https://reelette.example/invites/${token}?auth_error=callback#sign-in`
+    )
+  })
+  it.each([
+    "https://evil.example",
+    "//evil.example",
+    "../account",
+    "bad-token",
+  ])("rejects untrusted cookie destinations (%s)", async (value) => {
+    mocks.cookieGet.mockReturnValue({ value })
+    const response = await GET(
+      new Request("https://reelette.example/auth/callback?code=valid-code")
+    )
+    expect(response.headers.get("location")).toBe(
+      "https://reelette.example/rooms"
+    )
+  })
   it("exchanges the code and uses a fixed local destination", async () => {
     const response = await GET(
       new Request(

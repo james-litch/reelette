@@ -57,6 +57,60 @@ export type Database = {
           },
         ]
       }
+      room_invites: {
+        Row: {
+          expires_at: string
+          room_id: string
+          token: string
+        }
+        ComputedFields: never
+        Insert: {
+          expires_at?: string
+          room_id: string
+          token?: string
+        }
+        Update: {
+          expires_at?: string
+          room_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_invites_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: true
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      room_members: {
+        Row: {
+          joined_at: string
+          room_id: string
+          user_id: string
+        }
+        ComputedFields: never
+        Insert: {
+          joined_at?: string
+          room_id: string
+          user_id: string
+        }
+        Update: {
+          joined_at?: string
+          room_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "room_members_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -87,6 +141,28 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      accept_room_invite: { Args: { invite_token: string }; Returns: string }
+      create_room_invite: {
+        Args: { room_id: string }
+        Returns: {
+          expires_at: string
+          token: string
+        }[]
+      }
+      get_room_invite: {
+        Args: { invite_token: string }
+        Returns: {
+          room_name: string
+        }[]
+      }
+      get_room_members: {
+        Args: { room_id: string }
+        Returns: {
+          is_owner: boolean
+          name: string
+          user_id: string
+        }[]
+      }
       get_room_requestors: {
         Args: { room_id: string }
         Returns: {

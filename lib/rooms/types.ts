@@ -2,8 +2,11 @@ import type { Database } from "@/lib/supabase/database.types"
 
 export type Room = Pick<
   Database["public"]["Tables"]["rooms"]["Row"],
-  "id" | "name" | "created_at" | "exclude_last_requestor"
+  "id" | "name" | "created_at" | "exclude_last_requestor" | "owner_id"
 >
+
+export type RoomMember =
+  Database["public"]["Functions"]["get_room_members"]["Returns"][number]
 
 export type CreateRoomState = {
   error?: string

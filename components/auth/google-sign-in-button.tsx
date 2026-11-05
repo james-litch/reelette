@@ -6,11 +6,14 @@ import { LoaderCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import IconGoogle from "@/components/ui/icon-google"
 import { createClient } from "@/lib/supabase/client"
+import { rememberRoomInvite } from "@/app/invites/actions"
 
 export function GoogleSignInButton({
   callbackError = false,
+  inviteToken,
 }: {
   callbackError?: boolean
+  inviteToken?: string
 }) {
   const [pending, setPending] = useState(false)
   const [error, setError] = useState(
@@ -22,6 +25,7 @@ export function GoogleSignInButton({
     setError(null)
 
     try {
+      await rememberRoomInvite(inviteToken ?? null)
       const supabase = createClient()
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

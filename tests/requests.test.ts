@@ -84,7 +84,7 @@ function form(name: string = " Jamie ") {
 }
 
 describe("creating movie requests", () => {
-  it("verifies ownership and saves authoritative movie details with a trimmed requestor", async () => {
+  it("verifies room access and saves authoritative movie details with a trimmed requestor", async () => {
     const data = form()
     data.set("title", "Forged movie")
     data.set("owner_id", "someone-else")
@@ -93,7 +93,7 @@ describe("creating movie requests", () => {
     })
     expect(mocks.createClient).toHaveBeenCalledWith({ canWriteCookies: true })
     expect(mocks.eq).toHaveBeenCalledWith("id", roomId)
-    expect(mocks.eq).toHaveBeenCalledWith("owner_id", "owner")
+    expect(mocks.eq).not.toHaveBeenCalledWith("owner_id", expect.anything())
     expect(mocks.getMovie).toHaveBeenCalledWith(157336)
     expect(mocks.insert).toHaveBeenCalledWith({
       room_id: roomId,

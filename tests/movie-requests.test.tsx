@@ -320,7 +320,9 @@ describe("request filters and random movie choice", () => {
     const dialog = within(await screen.findByRole("dialog"))
     fireEvent.click(dialog.getByRole("button", { name: "Mark as watched" }))
     expect(await dialog.findByText("Save unavailable")).toBeDefined()
-    fireEvent.click(dialog.getByRole("button", { name: "Mark as watched" }))
+    fireEvent.click(
+      await dialog.findByRole("button", { name: "Mark as watched" })
+    )
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     expect(markRequestWatched).toHaveBeenCalledTimes(2)
   })

@@ -17,11 +17,16 @@ const mocks = vi.hoisted(() => ({
   deleteRoom: vi.fn(),
 }))
 vi.mock("@/app/rooms/[roomId]/settings-actions", () => mocks)
+vi.mock("@/app/rooms/[roomId]/invite-actions", () => ({
+  getRoomMembers: vi.fn(async () => ({ members: [] })),
+  createRoomInvite: vi.fn(),
+}))
 import { RoomSettingsDialog } from "@/components/rooms/room-settings-dialog"
 
 const room: Room = {
   id: "11111111-1111-4111-8111-111111111111",
   name: "Friday",
+  owner_id: "owner",
   created_at: "2026-11-05T12:00:00Z",
   exclude_last_requestor: false,
 }
@@ -53,8 +58,16 @@ function submitSettings(dialog: ReturnType<typeof within>) {
 }
 
 describe("room settings dialog", () => {
+  it("offers General and Members to invited users without room deletion", async () => {
+    render(<RoomSettingsDialog room={room} isOwner={false} />)
+    const dialog = await openSettings()
+    expect(dialog.getByRole("textbox", { name: "Room name" })).toBeDefined()
+    expect(dialog.getByRole("tab", { name: "Members" })).toBeDefined()
+    expect(dialog.queryByRole("tab", { name: "Danger" })).toBeNull()
+    expect(dialog.queryByRole("button", { name: "Delete room" })).toBeNull()
+  })
   it("saves a changed name and switch preference and closes on success", async () => {
-    render(<RoomSettingsDialog room={room} />)
+    render(<RoomSettingsDialog room={room} isOwner />)
     const dialog = await openSettings()
     fireEvent.change(dialog.getByRole("textbox", { name: "Room name" }), {
       target: { value: "Saturday" },
@@ -74,7 +87,7 @@ describe("room settings dialog", () => {
   })
 
   it("resets cancelled edits using the latest saved room on reopening", async () => {
-    const { rerender } = render(<RoomSettingsDialog room={room} />)
+    const { rerender } = render(<RoomSettingsDialog room={room} isOwner />)
     const dialog = await openSettings()
     fireEvent.change(dialog.getByRole("textbox"), {
       target: { value: "Unsaved" },
@@ -83,6 +96,7 @@ describe("room settings dialog", () => {
     await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull())
     rerender(
       <RoomSettingsDialog
+        isOwner
         room={{ ...room, name: "Saved name", exclude_last_requestor: true }}
       />
     )
@@ -100,7 +114,7 @@ describe("room settings dialog", () => {
     mocks.updateRoomSettings.mockResolvedValue({
       nameError: "Enter a room name.",
     })
-    render(<RoomSettingsDialog room={room} />)
+    render(<RoomSettingsDialog room={room} isOwner />)
     const dialog = await openSettings()
     submitSettings(dialog)
     expect(await dialog.findByRole("alert")).toHaveProperty(
@@ -119,7 +133,7 @@ describe("room settings dialog", () => {
         resolve = done
       })
     )
-    render(<RoomSettingsDialog room={room} />)
+    render(<RoomSettingsDialog room={room} isOwner />)
     const dialog = await openSettings()
     submitSettings(dialog)
     expect(
@@ -134,7 +148,7 @@ describe("room settings dialog", () => {
   })
 
   it("requires confirmation in Danger and keeps the confirmation open on deletion errors", async () => {
-    render(<RoomSettingsDialog room={room} />)
+    render(<RoomSettingsDialog room={room} isOwner />)
     const dialog = await openSettings()
     fireEvent.click(dialog.getByRole("tab", { name: "Danger" }))
     fireEvent.click(await dialog.findByRole("button", { name: "Delete room" }))

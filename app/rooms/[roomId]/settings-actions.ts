@@ -42,7 +42,6 @@ export async function updateRoomSettings(
       .from("rooms")
       .update({ name, exclude_last_requestor: excludeLastRequestor === "true" })
       .eq("id", roomId)
-      .eq("owner_id", user.id)
       .select("id")
       .maybeSingle()
     if (error || !data) return failure

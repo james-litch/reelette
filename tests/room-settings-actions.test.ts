@@ -62,7 +62,7 @@ beforeEach(() => {
 
 describe("room settings actions", () => {
   it.each(["true", "false"])(
-    "saves validated settings (%s) for the verified owner",
+    "saves validated settings (%s) using participant RLS",
     async (exclude) => {
       expect(
         await updateRoomSettings(roomId, form(" Saturday ", exclude))
@@ -72,7 +72,7 @@ describe("room settings actions", () => {
         exclude_last_requestor: exclude === "true",
       })
       expect(mocks.eq).toHaveBeenCalledWith("id", roomId)
-      expect(mocks.eq).toHaveBeenCalledWith("owner_id", "owner")
+      expect(mocks.eq).not.toHaveBeenCalledWith("owner_id", expect.anything())
       expect(mocks.revalidatePath).toHaveBeenCalledWith(
         `/rooms/${roomId}`,
         "layout"

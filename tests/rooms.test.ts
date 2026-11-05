@@ -136,24 +136,20 @@ describe("creating a room", () => {
 })
 
 describe("reading rooms", () => {
-  it("filters the room list by its verified owner and orders newest first", async () => {
+  it("lists all rooms allowed by participant RLS and orders newest first", async () => {
     const rooms = [
       { id: roomId, name: "Friday", created_at: "2026-11-05T00:00:00Z" },
     ]
-    const order = vi
-      .fn()
-      .mockReturnValueOnce({
-        order: vi.fn().mockResolvedValue({ data: rooms, error: null }),
-      })
-    const eq = vi.fn(() => ({ order }))
-    mocks.select.mockReturnValueOnce({ eq })
+    const order = vi.fn().mockReturnValueOnce({
+      order: vi.fn().mockResolvedValue({ data: rooms, error: null }),
+    })
+    mocks.select.mockReturnValueOnce({ order })
 
     expect(await getRooms()).toEqual({ rooms, error: null })
-    expect(eq).toHaveBeenCalledWith("owner_id", "owner")
     expect(order).toHaveBeenCalledWith("created_at", { ascending: false })
   })
 
-  it("filters individual rooms by both owner and room ID", async () => {
+  it("loads individual rooms by ID using participant RLS", async () => {
     const room = {
       id: roomId,
       name: "Friday",
@@ -165,8 +161,7 @@ describe("reading rooms", () => {
     mocks.select.mockReturnValueOnce(query)
 
     expect(await getRoom(roomId)).toEqual({ room, error: null })
-    expect(eq).toHaveBeenCalledWith("owner_id", "owner")
-    expect(eq).toHaveBeenCalledWith("id", roomId)
+    expect(eq).toHaveBeenCalledExactlyOnceWith("id", roomId)
   })
 
   it("rejects malformed room IDs before querying the database", async () => {

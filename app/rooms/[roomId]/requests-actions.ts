@@ -77,7 +77,6 @@ export async function createRequest(
       .from("rooms")
       .select("id")
       .eq("id", roomId)
-      .eq("owner_id", user.id)
       .maybeSingle()
     if (roomError || !room) return { error: "This room is unavailable." }
 
@@ -130,7 +129,7 @@ async function manageRequest(
     if (authError || !user)
       return { error: "Please sign in to manage requests." }
 
-    // RLS checks room ownership. Both IDs scope the mutation to this room.
+    // RLS checks room participation. Both IDs scope the mutation to this room.
     const table = supabase.from("movie_requests")
     const mutation =
       action === "watch"

@@ -40,7 +40,10 @@ export default async function RoomLayout({
               room={room}
               rooms={roomList.error ? [room] : roomList.rooms}
             />
-            <RoomSettingsDialog room={room} />
+            <RoomSettingsDialog
+              room={room}
+              isOwner={room.owner_id === user.id}
+            />
           </div>
           {roomList.error && <RoomsLoadError href={`/rooms/${room.id}`} />}
           <RoomTabs roomId={room.id}>{children}</RoomTabs>

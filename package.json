@@ -17,7 +17,7 @@
     "supabase-env": "node scripts/supabase-local.mjs env",
     "supabase-db-migrate": "supabase migration up",
     "supabase-db-reset": "supabase db reset",
-    "supabase-db-test": "docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/rooms.sql && docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/movie-requests.sql",
+    "supabase-db-test": "docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/rooms.sql && docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/movie-requests.sql && docker exec -i supabase_db_reelette psql --username postgres --dbname postgres --set ON_ERROR_STOP=1 < supabase/tests/room-members.sql",
     "supabase-types": "node scripts/supabase-local.mjs types",
     "supabase-db-pull": "supabase db pull --remote"
   },
