@@ -70,6 +70,41 @@ export async function getRoomMembers(roomId: string): Promise<{
   }
 }
 
+export async function removeRoomMember(
+  roomId: string,
+  memberId: string
+): Promise<{ success?: boolean; error?: string }> {
+  const failure = {
+    error: "We couldn’t remove this member. Please try again.",
+  }
+  if (
+    typeof roomId !== "string" ||
+    !isRoomId(roomId) ||
+    typeof memberId !== "string" ||
+    !isRoomId(memberId)
+  )
+    return failure
+  try {
+    const supabase = await createClient({ canWriteCookies: true })
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser()
+    if (authError || !user)
+      return { error: "Please sign in to remove members." }
+    // Ownership and owner protection are enforced by the database function.
+    const { data, error } = await supabase.rpc("remove_room_member", {
+      room_id: roomId,
+      member_id: memberId,
+    })
+    if (error || data !== true) return failure
+  } catch {
+    return failure
+  }
+  revalidatePath("/rooms", "layout")
+  return { success: true }
+}
+
 export async function acceptRoomInvite(
   token: string
 ): Promise<{ error?: string }> {

@@ -156,6 +156,12 @@ name (without the domain). The app formats names as first name and last initial
 are shown as-is. The list is available to both owners and members
 and refreshes when the tab opens.
 
+Owners can remove a member immediately using the trash icon next to their name.
+Owners cannot remove themselves, and members cannot remove other people.
+Removal revokes room access but keeps existing movie requests and history.
+A removed user can join again using a valid invite link; create a new link to
+invalidate a previously shared link when needed.
+
 Owners can choose **Create invite link** under Members, then copy and share the
 link themselves. Anyone with the link can sign in with Google, see the room name,
 and choose **Join room**. Links work for multiple recipients, expire after one
@@ -165,10 +171,10 @@ expired links, and replaced links cannot be joined.
 
 Joined members can add and delete movies, mark them as watched, view history,
 randomise the selection, rename the room, and change its random-selection setting.
-They cannot invite other users or delete the room. Supabase enforces these
+They cannot invite or remove other users or delete the room. Supabase enforces these
 permissions even for direct API calls. Memberships and invite tokens cannot be
 read or written directly through the Data API; checked database functions handle
-joining, link rotation, and the participant list. Deleting a room also removes
+joining, removal, link rotation, and the participant list. Deleting a room also removes
 its memberships and invite link.
 
 Apply `supabase/migrations/20261105210000_room_members_and_invites.sql` locally
@@ -178,6 +184,10 @@ The follow-up `supabase/migrations/20261105220000_one_hour_room_invites.sql`
 sets a one-hour lifetime for new and replacement links and shortens existing
 seven-day links to one hour from their original issue time. Older links expire
 immediately; existing memberships remain valid.
+The follow-up `supabase/migrations/20261105230000_remove_room_members.sql`
+adds the owner-only member removal function. Apply it locally with
+`npm run supabase-db-migrate` and to production through the migration workflow
+before deploying the app update.
 No new environment variables, service-role key, email service, or OAuth redirect
 allowlist changes are needed. A short-lived HttpOnly cookie remembers the invite
 while Google sign-in uses the existing `/auth/callback` URL; the callback only

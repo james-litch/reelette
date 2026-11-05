@@ -2,6 +2,7 @@
 
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
@@ -12,6 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 const mocks = vi.hoisted(() => ({
   getRoomMembers: vi.fn(),
   createRoomInvite: vi.fn(),
+  removeRoomMember: vi.fn(),
   writeText: vi.fn(),
 }))
 vi.mock("@/app/rooms/[roomId]/invite-actions", () => mocks)
@@ -32,6 +34,7 @@ beforeEach(() => {
     expiresAt: "2026-11-05T13:00:00Z",
   })
   mocks.writeText.mockResolvedValue(undefined)
+  mocks.removeRoomMember.mockResolvedValue({ success: true })
   Object.defineProperty(navigator, "clipboard", {
     configurable: true,
     value: { writeText: mocks.writeText },
@@ -87,6 +90,63 @@ describe("room members tab", () => {
       screen.queryByRole("button", { name: "Create invite link" })
     ).toBeNull()
     expect(mocks.createRoomInvite).not.toHaveBeenCalled()
+    expect(
+      screen.queryByRole("button", { name: /Remove .* from room/ })
+    ).toBeNull()
+  })
+  it("lets owners remove a member immediately, with no control to remove the owner", async () => {
+    render(<RoomMembers roomId={roomId} isOwner active />)
+    const button = await screen.findByRole("button", {
+      name: "Remove Taylor from room",
+    })
+    expect(
+      screen.queryByRole("button", { name: "Remove Alex from room" })
+    ).toBeNull()
+    fireEvent.click(button)
+    await screen.findByText("Taylor was removed from the room.")
+    expect(screen.queryByText("Taylor")).toBeNull()
+    expect(screen.getByText("Alex")).toBeDefined()
+    expect(mocks.removeRoomMember).toHaveBeenCalledExactlyOnceWith(
+      roomId,
+      "member"
+    )
+  })
+  it("disables removal while saving and keeps the member on failure for retry", async () => {
+    let resolve!: (value: { error: string }) => void
+    mocks.removeRoomMember.mockReturnValueOnce(
+      new Promise((done) => {
+        resolve = done
+      })
+    )
+    render(<RoomMembers roomId={roomId} isOwner active />)
+    const button = (await screen.findByRole("button", {
+      name: "Remove Taylor from room",
+    })) as HTMLButtonElement
+    fireEvent.click(button)
+    expect(button.disabled).toBe(true)
+    fireEvent.click(button)
+    expect(mocks.removeRoomMember).toHaveBeenCalledTimes(1)
+    await act(async () => resolve({ error: "Removal failed" }))
+    expect(await screen.findByRole("alert")).toHaveProperty(
+      "textContent",
+      "Removal failed"
+    )
+    expect(screen.getByText("Taylor")).toBeDefined()
+    await waitFor(() => expect(button.disabled).toBe(false))
+    fireEvent.click(button)
+    await screen.findByText("Taylor was removed from the room.")
+  })
+  it("shows a retryable error when removal throws", async () => {
+    mocks.removeRoomMember.mockRejectedValue(new Error("network"))
+    render(<RoomMembers roomId={roomId} isOwner active />)
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Remove Taylor from room" })
+    )
+    expect(await screen.findByRole("alert")).toHaveProperty(
+      "textContent",
+      "We couldn’t remove this member. Please try again."
+    )
+    expect(screen.getByText("Taylor")).toBeDefined()
   })
   it("provides retry on failed member loading", async () => {
     mocks.getRoomMembers.mockResolvedValueOnce({
