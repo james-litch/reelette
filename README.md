@@ -133,6 +133,11 @@ The homepage now offers **Create Room** and **My Rooms** to signed-in users.
 shows a first-room prompt. Each room's title dropdown lists your rooms and offers
 **Create a room**. Movie requests are not part of this change.
 
+Each room has shared **Requests**, **Search**, and **History** tabs. Requests is
+at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at
+`/rooms/<room-id>/history`. These pages currently show empty states; the room
+selector and access checks are shared by all three routes.
+
 The generated schema is in `lib/supabase/database.types.ts`. After applying local
 schema changes, run `npm run supabase-types` and commit the updated types.
 The SQL regression checks in

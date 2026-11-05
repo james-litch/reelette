@@ -50,7 +50,7 @@ describe("OAuth callback", () => {
     expect(mocks.auth.exchangeCodeForSession).toHaveBeenCalledWith("valid-code")
     expect(mocks.createClient).toHaveBeenCalledWith({ canWriteCookies: true })
     expect(response.headers.get("location")).toBe(
-      "https://reelette.example/account"
+      "https://reelette.example/rooms"
     )
     expect(response.headers.get("cache-control")).toContain("no-store")
   })

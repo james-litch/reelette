@@ -24,7 +24,7 @@ vi.mock("next/navigation", () => ({
 }))
 
 import RoomsPage from "@/app/rooms/page"
-import RoomPage from "@/app/rooms/[roomId]/page"
+import RoomLayout from "@/app/rooms/[roomId]/layout"
 
 const room = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -59,12 +59,15 @@ describe("My Rooms", () => {
   })
 })
 
-describe("room pages", () => {
+describe("shared room layout", () => {
   it("requires sign-in for direct room URLs", async () => {
     mocks.getUser.mockResolvedValueOnce(null)
 
     await expect(
-      RoomPage({ params: Promise.resolve({ roomId: room.id }) })
+      RoomLayout({
+        children: "room content",
+        params: Promise.resolve({ roomId: room.id }),
+      })
     ).rejects.toThrow("redirect:/#sign-in")
     expect(mocks.getRoom).not.toHaveBeenCalled()
   })
@@ -73,7 +76,10 @@ describe("room pages", () => {
     mocks.getRoom.mockResolvedValueOnce({ room: null, error: null })
 
     await expect(
-      RoomPage({ params: Promise.resolve({ roomId: room.id }) })
+      RoomLayout({
+        children: "room content",
+        params: Promise.resolve({ roomId: room.id }),
+      })
     ).rejects.toThrow("not-found")
   })
 
@@ -81,7 +87,10 @@ describe("room pages", () => {
     mocks.getRoom.mockResolvedValueOnce({ room: null, error: "unavailable" })
 
     expect(
-      await RoomPage({ params: Promise.resolve({ roomId: room.id }) })
+      await RoomLayout({
+        children: "room content",
+        params: Promise.resolve({ roomId: room.id }),
+      })
     ).toBeTruthy()
     expect(mocks.notFound).not.toHaveBeenCalled()
   })

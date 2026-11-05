@@ -30,7 +30,7 @@ export function RoomSwitcher({ room, rooms }: { room: Room; rooms: Room[] }) {
             <Button
               ref={triggerRef}
               variant="ghost"
-              className="max-w-full justify-start text-lg"
+              className="w-fit justify-start text-lg"
             />
           }
           aria-label={`${room.name}, switch rooms`}
