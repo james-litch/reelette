@@ -9,6 +9,51 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      movie_requests: {
+        Row: {
+          created_at: string
+          genres: string[]
+          id: string
+          poster_path: string | null
+          release_year: number | null
+          requestor_name: string
+          room_id: string
+          title: string
+          tmdb_id: number
+        }
+        ComputedFields: never
+        Insert: {
+          created_at?: string
+          genres?: string[]
+          id?: string
+          poster_path?: string | null
+          release_year?: number | null
+          requestor_name: string
+          room_id: string
+          title: string
+          tmdb_id: number
+        }
+        Update: {
+          created_at?: string
+          genres?: string[]
+          id?: string
+          poster_path?: string | null
+          release_year?: number | null
+          requestor_name?: string
+          room_id?: string
+          title?: string
+          tmdb_id?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "movie_requests_room_id_fkey"
+            columns: ["room_id"]
+            isOneToOne: false
+            referencedRelation: "rooms"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       rooms: {
         Row: {
           created_at: string
@@ -36,7 +81,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      get_room_requestors: {
+        Args: { room_id: string }
+        Returns: {
+          name: string
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

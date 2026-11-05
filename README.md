@@ -40,7 +40,7 @@ Useful local commands:
 npm run supabase-status       # Local service URLs and keys; keep output private
 npm run supabase-db-migrate   # Apply pending local migrations without a reset
 npm run supabase-types        # Regenerate and format the public database types
-npm run supabase-db-test      # Run room SQL checks locally; fixtures roll back
+npm run supabase-db-test      # Run room/request SQL checks; fixtures roll back
 npm run supabase-stop         # Stop local services while preserving database data
 ```
 
@@ -131,12 +131,32 @@ would need an additional membership table and corresponding RLS policies.
 The homepage now offers **Create Room** and **My Rooms** to signed-in users.
 **My Rooms** opens the most recently created room. If you have no rooms yet, it
 shows a first-room prompt. Each room's title dropdown lists your rooms and offers
-**Create a room**. Movie requests are not part of this change.
+**Create a room**.
 
 Each room has shared **Requests**, **Search**, and **History** tabs. Requests is
 at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at
 `/rooms/<room-id>/history`. The room selector and access checks are shared by
-all three routes. Requests and History currently show empty states.
+all three routes. History currently shows an empty state.
+
+Search results have an **Add** icon that opens an **Add request** dialog. Select
+a previous requestor or type a new name and choose **Add “name”**, then save.
+Names come from submitted requests in the current room, with case-insensitive
+deduplication. The Search page loads these names once and reuses them when the
+dialog is reopened, adding newly saved requestors to its local list. Refreshing
+or revisiting the page reloads the names. New names are only persisted when the
+movie request is saved.
+The Requests tab displays each movie's poster, title, year, genre badges, and
+requestor name, newest first.
+
+Apply `supabase/migrations/20261105170000_create_movie_requests.sql` with
+`npm run supabase-db-migrate` locally, then `npm run supabase-types` to refresh
+the generated types. For hosted Supabase, apply the same migration using your
+deployment workflow or SQL Editor. It creates `movie_requests` and the
+`get_room_requestors` function. RLS permits reads and inserts only for the room
+owner; anonymous access, updates, and deletes are not granted. The names
+function uses invoker security, so the same RLS applies to suggestions.
+No new environment variables are needed. The server verifies ownership and
+fetches movie details from TMDB before saving a snapshot with the request.
 
 The Search tab uses `tmdb-ts` through `GET /api/movies/search?query=<title>&page=1`.
 Set `TMDB_ACCESS_TOKEN` to your TMDB API Read Access Token in `.env.local` and
@@ -158,8 +178,10 @@ next search is debouncing.
 The generated schema is in `lib/supabase/database.types.ts`. After applying local
 schema changes, run `npm run supabase-types` and commit the updated types.
 The SQL regression checks in
-[`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) verify ownership, anonymous
-access, name constraints, and denied updates/deletes. Run them in a test database
+[`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) and
+[`supabase/tests/movie-requests.sql`](supabase/tests/movie-requests.sql) verify
+ownership, anonymous access, name constraints, requestor suggestions, and denied
+updates/deletes. Run them in a test database
 after the migration with `npm run supabase-db-test`; their fixtures are wrapped
 in a transaction and rolled back. The test command uses `psql` inside the local
 `supabase_db_reelette` Docker container, so no host PostgreSQL install is needed.

@@ -1,8 +1,13 @@
 "use client"
 
 import { AlertCircle, ChevronLeft, ChevronRight, Search } from "lucide-react"
+import { useRef, useState } from "react"
+import { useParams } from "next/navigation"
+import Link from "next/link"
+import type { Movie } from "tmdb-ts"
 
 import { MovieSearchResultItem } from "@/components/movies/movie-search-result-item"
+import { AddRequestDialog } from "@/components/requests/add-request-dialog"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import {
   Empty,
@@ -26,8 +31,14 @@ import {
 import { MOVIE_SEARCH_MAX_LENGTH } from "@/lib/movies/types"
 
 import { useMovieSearch } from "./use-movie-search"
+import { useRequestors } from "./use-requestors"
 
 export default function RoomSearchPage() {
+  const { roomId } = useParams<{ roomId: string }>()
+  const { requestors, addRequestor } = useRequestors(roomId)
+  const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null)
+  const [savedMovie, setSavedMovie] = useState<string | null>(null)
+  const addButtonRef = useRef<HTMLButtonElement | null>(null)
   const { query, setQuery, setPage, ...state } = useMovieSearch()
 
   return (
@@ -56,6 +67,18 @@ export default function RoomSearchPage() {
             : `${state.totalResults.toLocaleString()} ${state.totalResults === 1 ? "result" : "results"}`}
         </InputGroupAddon>
       </InputGroup>
+
+      {savedMovie && (
+        <p role="status" className="text-sm text-muted-foreground">
+          {savedMovie} added to requests.{" "}
+          <Link
+            href={`/rooms/${roomId}`}
+            className="underline underline-offset-4"
+          >
+            View requests
+          </Link>
+        </p>
+      )}
 
       <div id="movie-search-results" aria-busy={state.status === "loading"}>
         {state.status === "error" && (
@@ -92,11 +115,33 @@ export default function RoomSearchPage() {
                 key={movie.id}
                 movie={movie}
                 genres={state.genres}
+                onAdd={(trigger) => {
+                  addButtonRef.current = trigger
+                  setSavedMovie(null)
+                  setSelectedMovie(movie)
+                }}
               />
             ))}
           </ItemGroup>
         )}
       </div>
+
+      {selectedMovie && (
+        <AddRequestDialog
+          key={selectedMovie.id}
+          roomId={roomId}
+          movie={selectedMovie}
+          genres={state.genres}
+          requestors={requestors}
+          returnFocusRef={addButtonRef}
+          onClose={() => setSelectedMovie(null)}
+          onSaved={(requestor) => {
+            addRequestor(requestor)
+            setSavedMovie(selectedMovie.title)
+            setSelectedMovie(null)
+          }}
+        />
+      )}
 
       {state.totalPages > 1 && (
         <Pagination aria-label="Movie result pages" className="max-w-lg">

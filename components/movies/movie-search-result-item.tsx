@@ -1,9 +1,12 @@
 import type { Genre, Movie } from "tmdb-ts"
+import { Plus } from "lucide-react"
 
 import { MoviePoster } from "@/components/movies/movie-poster"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import {
   Item,
+  ItemActions,
   ItemContent,
   ItemDescription,
   ItemMedia,
@@ -13,9 +16,11 @@ import {
 export function MovieSearchResultItem({
   movie,
   genres,
+  onAdd,
 }: {
   movie: Movie
   genres: Genre[]
+  onAdd: (trigger: HTMLButtonElement) => void
 }) {
   const year = movie.release_date?.match(/^\d{4}/)?.[0]
   const movieGenres = genres.filter((genre) =>
@@ -45,11 +50,22 @@ export function MovieSearchResultItem({
             ))}
         </div>
         {movie.overview && (
-          <ItemDescription className="text-xs mt-1">
+          <ItemDescription className="mt-1 text-xs">
             {movie.overview}
           </ItemDescription>
         )}
       </ItemContent>
+      <ItemActions>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon-sm"
+          aria-label={`Add ${movie.title} to requests`}
+          onClick={(event) => onAdd(event.currentTarget)}
+        >
+          <Plus aria-hidden="true" />
+        </Button>
+      </ItemActions>
     </Item>
   )
 }
