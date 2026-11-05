@@ -28,7 +28,6 @@ vi.mock("next/navigation", () => ({ redirect: mocks.redirect }))
 
 import { GET } from "@/app/auth/callback/route"
 import { signOut } from "@/app/auth/actions"
-import AccountPage from "@/app/account/page"
 import { updateSession } from "@/lib/supabase/proxy"
 import { getUser } from "@/lib/supabase/user"
 
@@ -147,7 +146,7 @@ describe("OAuth callback", () => {
 
 describe("session refresh", () => {
   it("passes refreshed cookies to both server rendering and the browser", async () => {
-    const request = new NextRequest("https://reelette.example/account", {
+    const request = new NextRequest("https://reelette.example/rooms", {
       headers: { cookie: "sb-session=old-token" },
     })
     let cookieMethods: CookieMethodsServer
@@ -201,9 +200,9 @@ describe("session refresh", () => {
   })
 })
 
-describe("account access", () => {
-  it("redirects an unauthenticated visitor to sign-in", async () => {
-    await expect(AccountPage()).rejects.toThrow("redirect:/#sign-in")
+describe("user verification", () => {
+  it("returns no user for an unauthenticated visitor", async () => {
+    expect(await getUser()).toBeNull()
   })
 
   it("rejects a user when Supabase verification fails", async () => {
@@ -215,13 +214,16 @@ describe("account access", () => {
     expect(await getUser()).toBeNull()
   })
 
-  it("renders the account for a verified user", async () => {
+  it("returns a verified user", async () => {
     mocks.auth.getUser.mockResolvedValueOnce({
       data: { user: { id: "verified", email: "user@example.com" } },
       error: null,
     })
 
-    expect(await AccountPage()).toBeTruthy()
+    expect(await getUser()).toEqual({
+      id: "verified",
+      email: "user@example.com",
+    })
     expect(mocks.auth.getUser).toHaveBeenCalledOnce()
     expect(mocks.redirect).not.toHaveBeenCalled()
   })

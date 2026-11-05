@@ -84,8 +84,9 @@ Add your production origin and the hosted Supabase callback
 Keep the local callback registered too when using the same client locally.
 
 The app uses a PKCE code exchange and cookie-based sessions. `proxy.ts` refreshes
-sessions before server rendering; `/account` independently verifies the user
+sessions before server rendering; server-side access checks verify the user
 with Supabase Auth. The homepage and header reflect the signed-in session.
+Signed-in users can sign out directly from the header and return to the homepage.
 
 References: [Supabase SSR setup](https://supabase.com/docs/guides/auth/server-side/creating-a-client),
 [Google provider setup](https://supabase.com/docs/guides/auth/social-sign-in/auth-google),
