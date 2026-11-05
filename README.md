@@ -51,7 +51,7 @@ tests create temporary fixtures themselves.
 
 These commands target the local stack. `npm run supabase-db-pull` explicitly
 reads the linked hosted schema; it does not apply your migrations to the host.
-To deploy schema changes, review `npx supabase db push --remote` separately.
+Use the production migration workflow described below to deploy schema changes.
 
 ## Configure Google sign-in
 
@@ -98,19 +98,13 @@ Locally, `npm run supabase-db-migrate` applies the room schema and RLS policies
 from `supabase/migrations`. The migration is also applied on a fresh start or
 local database reset. No hosted changes are made by these local commands.
 
-For an existing hosted project that does not have the rooms migration yet,
-apply it through your migration deployment workflow or run it once manually:
+For an existing hosted project, deploy all pending migrations through the
+production workflow below. Avoid pasting migrations into SQL Editor: that does
+not record them in the CLI's migration history.
 
-1. Open your Supabase project's **SQL Editor** and create a new query.
-2. Paste the complete contents of
-   [`supabase/migrations/20261105143000_create_rooms.sql`](supabase/migrations/20261105143000_create_rooms.sql)
-   and run it once. The transaction creates the table, index, permissions, and
-   row-level security policies together.
-3. Confirm that **Table Editor → rooms** contains `id`, `owner_id`, `name`, and
-   `created_at`, with RLS enabled.
-4. Sign in to the app, click **Create Room**, enter a name, and submit. You should
-   land at `/rooms/<room-id>`. Create a second room to try switching with the
-   room-title dropdown.
+After deployment, sign in to the app, click **Create Room**, enter a name, and
+submit. You should land at `/rooms/<room-id>`. Create a second room to try
+switching with the room-title dropdown.
 
 Each room gets a UUID and creation timestamp from PostgreSQL. The app trims room
 names and accepts 1–80 characters; database constraints enforce the length and
@@ -218,7 +212,7 @@ no additional Supabase migration or environment variables are required.
 Apply `supabase/migrations/20261105170000_create_movie_requests.sql` with
 `npm run supabase-db-migrate` locally, then `npm run supabase-types` to refresh
 the generated types. For hosted Supabase, apply the same migration using your
-deployment workflow or SQL Editor. It creates `movie_requests` and the
+deployment workflow. It creates `movie_requests` and the
 `get_room_requestors` function. The membership migration below extends request RLS to owners and joined
 members. Also apply `supabase/migrations/20261105190000_manage_movie_requests.sql`
 locally with `npm run supabase-db-migrate` and to hosted Supabase through your
@@ -263,7 +257,88 @@ in a transaction and rolled back. The test command uses `psql` inside the local
 
 ```bash
 npm run lint
+npx next typegen
 npm run typecheck
 npm test
 npm run build
 ```
+
+## GitHub CI
+
+[CI](.github/workflows/ci.yml) runs on pull requests and pushes to `main`:
+
+- **App checks** installs locked dependencies with `npm ci`, then runs lint,
+  Next.js route type generation, TypeScript, Vitest, and a production build.
+- **Database checks** starts disposable local Postgres, replays every migration
+  from scratch, runs the SQL permission/regression checks, and verifies that
+  committed database types match the migrated schema.
+
+Both jobs use Node.js 24. CI uses placeholders and mocks; no production,
+Google, or TMDB secrets are needed. Google fonts are downloaded during the build.
+Enable GitHub Actions after pushing this repository to GitHub, then require
+**App checks** and **Database checks** in the `main` branch ruleset before merging.
+
+## Production Supabase migrations
+
+Treat `supabase/migrations` as the source of truth. Create a new migration with
+`npx supabase migration new describe_the_change`, apply it locally with
+`npm run supabase-db-migrate`, regenerate types with `npm run supabase-types`, and
+commit the SQL and types together. Changes made in local Studio must also be
+captured in a migration (for example with `npx supabase db diff -f describe_the_change`).
+Once a migration has been deployed, add a new migration for further changes;
+do not edit or rename an applied migration.
+
+This follows [Supabase's recommended migration deployment approach](https://supabase.com/docs/guides/deployment/managing-environments).
+The repository includes a manual
+[Supabase production migrations](.github/workflows/supabase-production.yml)
+workflow. It runs the same CI checks against the selected commit, then previews
+pending production migrations. It only applies them when **Apply pending
+migrations** is checked, and only runs from `main`. Deployments are serialized.
+
+One-time GitHub setup:
+
+1. Create a GitHub environment named **production**, restrict deployment branches
+   to `main`, and configure required reviewers if available for your repository.
+2. Add its environment variable `SUPABASE_PROJECT_REF`: your hosted production
+   project's reference (the subdomain before `.supabase.co`).
+3. Add its environment secrets `SUPABASE_ACCESS_TOKEN` (a Supabase personal or
+   scoped access token with access to this project) and `SUPABASE_DB_PASSWORD`
+   (the production database password). These are CLI credentials, not the app's
+   publishable or service-role key. Keep them out of `.env.example` and git.
+
+For a release, merge after CI passes. In **Actions → Supabase production
+migrations → Run workflow**, choose `main` and leave **Apply pending migrations**
+unchecked to review the migration list. Run again with it checked to apply the
+reviewed migrations, then deploy the app version that depends on them. Every
+run checks the selected commit again; review any new commits before applying.
+The commands explicitly target the production project with `--remote=<ref>`;
+the CLI never relies on a developer's local project link.
+
+The workflow uses `--include-all` because the initial rooms migration
+(`20261105143000`) predates the imported remote schema migration
+(`20261105145208`) already recorded on the hosted project. This lets the CLI
+apply older pending migrations as well as newer ones; it does not rerun versions
+already recorded as applied. Review those older files in the preview too.
+
+The workflow applies pending SQL only. It does not copy local users/data, run
+seeds, reset production, or push local Auth configuration or Vault secrets.
+Keep hosted Google OAuth credentials, Site URL, redirect URLs, and deployment
+environment variables configured separately as described above.
+
+Before the first deployment, compare `npx supabase migration list --remote=<ref>`
+with the actual hosted schema. This project includes an imported remote schema
+migration, and some early migrations may have been run manually in SQL Editor.
+If a migration's changes already exist remotely but its version is missing from
+history, verify the **complete** migration first, then mark only that version
+with `npx supabase migration repair <version> --status applied --remote=<ref> --yes`.
+Repair changes history, not the schema. Do not mark unapplied migrations as
+applied or automatically repair a failed deployment; reconcile any partial
+changes first. Preview again before applying anything.
+
+Use backward-compatible migrations: add new fields/functions, deploy the app
+using them, then remove old schema in a later release. The currently running
+app must remain compatible while migrations run. Verify production backups
+before changes that remove or rewrite data. Fix deployed schema issues with a
+new migration; reverting app code does not undo a database migration. A separate
+staging Supabase project is useful for rehearsing changes against realistic data
+before production.

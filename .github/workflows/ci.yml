@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  app:
+    name: App checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      # Build with public placeholders; CI never needs production credentials.
+      NEXT_PUBLIC_SUPABASE_URL: http://127.0.0.1:54321
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci_placeholder
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npx next typegen
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+
+  database:
+    name: Database checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Only Postgres runs here; these satisfy the local OAuth config parser.
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID: ci-placeholder
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET: ci-placeholder
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      # The fresh runner has no database: start replays all migrations and seeds.
+      # Use the CLI version pinned in package-lock.json.
+      - run: npx supabase db start
+      - run: npm run supabase-db-test
+      - name: Check generated database types
+        run: |
+          npm run supabase-types
+          git diff --exit-code -- lib/supabase/database.types.ts
+      - name: Stop local database
+        if: always()
+        run: npm run supabase-stop
