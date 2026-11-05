@@ -60,6 +60,7 @@ export type Database = {
       rooms: {
         Row: {
           created_at: string
+          exclude_last_requestor: boolean
           id: string
           name: string
           owner_id: string
@@ -67,12 +68,14 @@ export type Database = {
         ComputedFields: never
         Insert: {
           created_at?: string
+          exclude_last_requestor?: boolean
           id?: string
           name: string
           owner_id: string
         }
         Update: {
           created_at?: string
+          exclude_last_requestor?: boolean
           id?: string
           name?: string
           owner_id?: string

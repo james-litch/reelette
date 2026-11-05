@@ -2,10 +2,16 @@ import type { Database } from "@/lib/supabase/database.types"
 
 export type Room = Pick<
   Database["public"]["Tables"]["rooms"]["Row"],
-  "id" | "name" | "created_at"
+  "id" | "name" | "created_at" | "exclude_last_requestor"
 >
 
 export type CreateRoomState = {
+  error?: string
+  nameError?: string
+}
+
+export type RoomSettingsState = {
+  success?: boolean
   error?: string
   nameError?: string
 }

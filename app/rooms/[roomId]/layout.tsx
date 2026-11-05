@@ -2,6 +2,7 @@ import type { ReactNode } from "react"
 import { notFound, redirect } from "next/navigation"
 
 import { RoomSwitcher } from "@/components/rooms/room-switcher"
+import { RoomSettingsDialog } from "@/components/rooms/room-settings-dialog"
 import { RoomTabs } from "@/components/rooms/room-tabs"
 import { RoomsLoadError } from "@/components/rooms/rooms-load-error"
 import { getRoom, getRooms } from "@/lib/rooms/queries"
@@ -26,16 +27,21 @@ export default async function RoomLayout({
   if (!error && !room) notFound()
 
   return (
-    <main className="mx-auto space-y-4 max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+    <main className="mx-auto max-w-7xl space-y-4 px-4 py-6 sm:px-6 lg:px-8">
       {error || !room ? (
         <RoomsLoadError href={`/rooms/${roomId}`} />
       ) : (
         <>
-          <RoomSwitcher
+          <div
             key={room.id}
-            room={room}
-            rooms={roomList.error ? [room] : roomList.rooms}
-          />
+            className="flex min-w-0 items-center justify-between gap-3"
+          >
+            <RoomSwitcher
+              room={room}
+              rooms={roomList.error ? [room] : roomList.rooms}
+            />
+            <RoomSettingsDialog room={room} />
+          </div>
           {roomList.error && <RoomsLoadError href={`/rooms/${room.id}`} />}
           <RoomTabs roomId={room.id}>{children}</RoomTabs>
         </>

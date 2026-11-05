@@ -4,7 +4,7 @@ import Link from "next/link"
 import { MovieRequests } from "@/components/requests/movie-requests"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { buttonVariants } from "@/components/ui/button"
-import { getRequests } from "@/lib/requests/queries"
+import { getRandomSelection, getRequests } from "@/lib/requests/queries"
 
 import {
   Empty,
@@ -20,7 +20,10 @@ export default async function RoomRequestsPage({
   params: Promise<{ roomId: string }>
 }) {
   const { roomId } = await params
-  const { requests, error } = await getRequests(roomId)
+  const [{ requests, error }, randomSelection] = await Promise.all([
+    getRequests(roomId),
+    getRandomSelection(roomId),
+  ])
 
   if (error)
     return (
@@ -31,7 +34,14 @@ export default async function RoomRequestsPage({
     )
 
   if (requests.length > 0)
-    return <MovieRequests key={roomId} requests={requests} />
+    return (
+      <MovieRequests
+        key={roomId}
+        requests={requests}
+        excludedRequestor={randomSelection.excludedRequestor}
+        randomError={randomSelection.error}
+      />
+    )
 
   return (
     <Empty className="min-h-80 border">

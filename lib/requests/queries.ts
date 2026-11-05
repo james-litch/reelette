@@ -1,6 +1,7 @@
 import "server-only"
 
 import { isRoomId } from "@/lib/rooms/types"
+import { getRoom } from "@/lib/rooms/queries"
 import { createClient } from "@/lib/supabase/server"
 import { getUser } from "@/lib/supabase/user"
 import type { MovieRequest } from "@/lib/requests/types"
@@ -35,6 +36,38 @@ export async function getRequests(
       .order("id", { ascending: false })
 
     return error ? failure : { requests: data, error: null }
+  } catch {
+    return failure
+  }
+}
+
+export async function getRandomSelection(roomId: string): Promise<{
+  excludedRequestor: string | null
+  error: string | null
+}> {
+  const failure = {
+    excludedRequestor: null,
+    error: "Random selection is unavailable. Please refresh to try again.",
+  }
+  const { room, error: roomError } = await getRoom(roomId)
+  if (roomError || !room) return failure
+  if (!room.exclude_last_requestor)
+    return { excludedRequestor: null, error: null }
+
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from("movie_requests")
+      .select("requestor_name")
+      .eq("room_id", roomId)
+      .not("watched_at", "is", null)
+      .order("watched_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    return error
+      ? failure
+      : { excludedRequestor: data?.requestor_name ?? null, error: null }
   } catch {
     return failure
   }

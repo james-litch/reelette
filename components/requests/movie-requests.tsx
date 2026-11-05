@@ -30,7 +30,15 @@ function filterOptions(values: string[]) {
   )
 }
 
-export function MovieRequests({ requests }: { requests: MovieRequest[] }) {
+export function MovieRequests({
+  requests,
+  excludedRequestor = null,
+  randomError = null,
+}: {
+  requests: MovieRequest[]
+  excludedRequestor?: string | null
+  randomError?: string | null
+}) {
   const id = useId()
   const randomButtonRef = useRef<HTMLButtonElement>(null)
   const [selectedRequestors, setSelectedRequestors] = useState<string[]>([])
@@ -58,10 +66,17 @@ export function MovieRequests({ requests }: { requests: MovieRequest[] }) {
           activeGenres.includes(name.trim().toLowerCase())
         ))
   )
-  const selected = filtered.find((request) => request.id === selectedId)
+  const eligible = randomError
+    ? []
+    : filtered.filter(
+        (request) =>
+          request.requestor_name.trim().toLowerCase() !==
+          excludedRequestor?.trim().toLowerCase()
+      )
+  const selected = eligible.find((request) => request.id === selectedId)
   const alternatives = selected
-    ? filtered.filter((request) => request.tmdb_id !== selected.tmdb_id)
-    : filtered
+    ? eligible.filter((request) => request.tmdb_id !== selected.tmdb_id)
+    : eligible
 
   function pickMovie() {
     if (!alternatives.length) return
@@ -99,13 +114,30 @@ export function MovieRequests({ requests }: { requests: MovieRequest[] }) {
         <Button
           ref={randomButtonRef}
           className="w-full sm:ml-auto sm:w-auto"
-          disabled={!filtered.length}
+          disabled={!eligible.length}
+          aria-describedby={
+            randomError || excludedRequestor
+              ? `${id}-random-description`
+              : undefined
+          }
           onClick={pickMovie}
         >
           <Shuffle data-icon="inline-start" aria-hidden="true" />
           Randomise movie
         </Button>
       </div>
+      {(randomError || excludedRequestor) && (
+        <p
+          id={`${id}-random-description`}
+          role="status"
+          className="text-sm text-muted-foreground"
+        >
+          {randomError ||
+            (eligible.length
+              ? `Random selection excludes ${excludedRequestor}, whose movie was last watched.`
+              : `No movies are eligible for random selection with the current filters and the exclusion of ${excludedRequestor}. Change the filters or turn off “Exclude last requestor” in room settings.`)}
+        </p>
+      )}
       {filtered.length ? (
         <ItemGroup
           aria-label="Movie requests"

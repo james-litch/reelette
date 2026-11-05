@@ -117,9 +117,10 @@ reject blank or space-padded names. `owner_id` references `auth.users`, and the
 server derives it from the authenticated session. Deleting the owning auth user
 also deletes their rooms.
 
-The `authenticated` role can insert and select rooms. RLS allows those operations
-only when `owner_id = auth.uid()`. Anonymous users have no room access, and room
-updates and deletes are not granted. These protections apply to direct Data API
+The `authenticated` role can insert, select, update settings, and delete rooms.
+RLS allows those operations only when `owner_id = auth.uid()`. Updates are
+restricted to `name` and `exclude_last_requestor`; room identity and ownership
+cannot be changed. Anonymous users have no room access. These protections apply to direct Data API
 requests as well as requests from this app. See Supabase's
 [row-level security guide](https://supabase.com/docs/guides/database/postgres/row-level-security).
 
@@ -132,6 +133,25 @@ The homepage now offers **Create Room** and **My Rooms** to signed-in users.
 **My Rooms** opens the most recently created room. If you have no rooms yet, it
 shows a first-room prompt. Each room's title dropdown lists your rooms and offers
 **Create a room**.
+
+The gear button beside the room title opens **Room settings** on every room tab.
+**General** lets you rename the room and save **Exclude last requestor**. This
+setting defaults to off. When enabled, random selection skips every unwatched
+request from the requestor whose movie was most recently watched in this room,
+matching names without case sensitivity. Requestor and genre filters still apply;
+the request grid stays visible. Before the first watched movie, nobody is excluded.
+If no eligible movies remain, change the filters or disable the setting. History
+load failures disable random selection until a successful refresh.
+
+**Danger** offers room deletion with a separate confirmation. Deleting a room
+permanently removes its requests and watched history, then opens **My Rooms**
+(or the first-room prompt when none remain).
+
+Apply `supabase/migrations/20261105200000_room_settings.sql` locally with
+`npm run supabase-db-migrate`, then run `npm run supabase-types`. Apply the same
+migration to hosted Supabase through your deployment workflow. It adds the
+saved exclusion preference, owner-only settings updates and deletion, and an
+index for the latest watched request. No new environment variables are needed.
 
 Each room has shared **Requests**, **Search**, and **History** tabs. Requests is
 at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at

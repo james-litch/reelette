@@ -92,6 +92,49 @@ function titles() {
 }
 
 describe("request filters and random movie choice", () => {
+  it("excludes the last requestor from random picks, including different casing, without hiding requests", async () => {
+    render(<MovieRequests requests={requests} excludedRequestor=" JAMIE " />)
+    expect(titles()).toHaveLength(3)
+    fireEvent.click(screen.getByRole("button", { name: "Randomise movie" }))
+    const dialog = within(await screen.findByRole("dialog"))
+    expect(dialog.getByRole("heading", { name: "Barbie (2023)" })).toBeDefined()
+    expect(
+      (dialog.getByRole("button", { name: "Pick again" }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true)
+  })
+
+  it("does not fall back to an excluded requestor when filters leave no eligible movies", async () => {
+    render(<MovieRequests requests={requests} excludedRequestor="Jamie" />)
+    await selectFilter("Filter by requestor", "Jamie")
+    expect(titles()).toHaveLength(2)
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Randomise movie",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+    expect(screen.getByRole("status").textContent).toContain(
+      "No movies are eligible"
+    )
+  })
+
+  it("disables random selection on history errors while keeping requests available", () => {
+    render(
+      <MovieRequests requests={requests} randomError="History unavailable" />
+    )
+    expect(titles()).toHaveLength(3)
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Randomise movie",
+        }) as HTMLButtonElement
+      ).disabled
+    ).toBe(true)
+    expect(screen.getByRole("status").textContent).toBe("History unavailable")
+  })
+
   it("keeps multiple genre checkboxes open and randomises only matching movies", async () => {
     render(<MovieRequests requests={requests} />)
     fireEvent.click(screen.getByRole("button", { name: "Filter by genre" }))

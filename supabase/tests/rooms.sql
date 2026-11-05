@@ -20,6 +20,9 @@ insert into public.rooms (owner_id, name)
 values (current_setting('test.room_owner')::uuid, 'Friday Movie Night');
 
 do $$
+declare
+  affected integer;
+  owned_room uuid;
 begin
   if (select count(*) from public.rooms) <> 1 then
     raise exception 'Expected to see exactly one owned room';
@@ -54,20 +57,62 @@ begin
   exception when check_violation then null;
   end;
 
+  select id into owned_room from public.rooms;
+  if (select exclude_last_requestor from public.rooms where id = owned_room) then
+    raise exception 'Exclusion should default to off';
+  end if;
+
+  update public.rooms set name = 'Saturday Movie Night', exclude_last_requestor = true
+    where id = owned_room;
+  if not exists (select 1 from public.rooms where id = owned_room
+    and name = 'Saturday Movie Night' and exclude_last_requestor) then
+    raise exception 'Owners should be able to save their settings';
+  end if;
+
+  update public.rooms set name = 'Forged change'
+    where owner_id = current_setting('test.other_owner')::uuid;
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'Another owner''s room was updated'; end if;
+
   begin
-    update public.rooms set name = 'Changed';
-    raise exception 'Updates should not be granted';
+    update public.rooms set owner_id = current_setting('test.other_owner')::uuid;
+    raise exception 'Ownership must remain immutable';
   exception when insufficient_privilege then null;
   end;
 
   begin
-    delete from public.rooms;
-    raise exception 'Deletes should not be granted';
-  exception when insufficient_privilege then null;
+    update public.rooms set name = '   ' where id = owned_room;
+    raise exception 'Updated names must still pass constraints';
+  exception when check_violation then null;
   end;
+
+  delete from public.rooms where owner_id = current_setting('test.other_owner')::uuid;
+  get diagnostics affected = row_count;
+  if affected <> 0 then raise exception 'Another owner''s room was deleted'; end if;
+
+  insert into public.movie_requests (room_id, tmdb_id, title, requestor_name, watched_at)
+    values (owned_room, 1, 'Unwatched fixture', 'Jamie', null),
+           (owned_room, 2, 'Watched fixture', 'Alex', now());
+  delete from public.rooms where id = owned_room;
+  if exists (select 1 from public.rooms where id = owned_room) then
+    raise exception 'Owners should be able to delete their room';
+  end if;
+  -- RLS hides orphaned requests, so verify the cascade as postgres below too.
+  perform set_config('test.deleted_room', owned_room::text, true);
 end $$;
 
 reset role;
+do $$
+begin
+  if exists (select 1 from public.movie_requests where room_id = current_setting('test.deleted_room')::uuid) then
+    raise exception 'Deleting a room should cascade to requests and history';
+  end if;
+  if not exists (select 1 from public.rooms where owner_id = current_setting('test.other_owner')::uuid
+    and name = 'Someone else''s room') then
+    raise exception 'Another owner''s room should be unchanged';
+  end if;
+end $$;
+
 set local role anon;
 select set_config('request.jwt.claims', '{}', true);
 
@@ -83,6 +128,18 @@ begin
     insert into public.rooms (owner_id, name)
     values (current_setting('test.room_owner')::uuid, 'Anonymous room');
     raise exception 'Anonymous inserts should fail';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    update public.rooms set name = 'Anonymous change';
+    raise exception 'Anonymous updates should fail';
+  exception when insufficient_privilege then null;
+  end;
+
+  begin
+    delete from public.rooms;
+    raise exception 'Anonymous deletes should fail';
   exception when insufficient_privilege then null;
   end;
 end $$;
