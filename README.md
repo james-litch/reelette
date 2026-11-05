@@ -151,7 +151,9 @@ index for the latest watched request. No new environment variables are needed.
 
 **Members** lists everyone in the room, with **Owner** or **Member** badges.
 Names come from Google profile metadata, falling back to the account's email
-name (without the domain). The list is available to both owners and members
+name (without the domain). The app formats names as first name and last initial
+(for example, **Alex M.**) before returning the list to the browser. Single names
+are shown as-is. The list is available to both owners and members
 and refreshes when the tab opens.
 
 Owners can choose **Create invite link** under Members, then copy and share the

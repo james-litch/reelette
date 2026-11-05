@@ -52,7 +52,19 @@ export async function getRoomMembers(roomId: string): Promise<{
     const { data, error } = await supabase.rpc("get_room_members", {
       room_id: roomId,
     })
-    return error || !data ? failure : { members: data }
+    if (error || !data) return failure
+    return {
+      members: data.map((member) => {
+        const [firstName, ...remainingNames] = member.name.trim().split(/\s+/)
+        const lastName = remainingNames.at(-1)
+        return {
+          ...member,
+          name: lastName
+            ? `${firstName} ${Array.from(lastName)[0].toUpperCase()}.`
+            : firstName || "Member",
+        }
+      }),
+    }
   } catch {
     return failure
   }

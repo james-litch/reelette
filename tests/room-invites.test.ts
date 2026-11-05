@@ -66,10 +66,20 @@ describe("room invites and members", () => {
       error: "We couldn’t create an invite link. Please try again.",
     })
   })
-  it("lists members through the participant-checked function without trusting a submitted user ID", async () => {
-    const members = [{ user_id: "owner", name: "Alex", is_owner: true }]
+  it("lists members with first names and last initials through the participant-checked function", async () => {
+    const members = [
+      { user_id: "owner", name: "  Alex Morgan  ", is_owner: true },
+      { user_id: "member", name: "Taylor  Marie Smith", is_owner: false },
+      { user_id: "single", name: "Prince", is_owner: false },
+    ]
     mocks.rpc.mockResolvedValue({ data: members, error: null })
-    expect(await getRoomMembers(roomId)).toEqual({ members })
+    expect(await getRoomMembers(roomId)).toEqual({
+      members: [
+        { user_id: "owner", name: "Alex M.", is_owner: true },
+        { user_id: "member", name: "Taylor S.", is_owner: false },
+        { user_id: "single", name: "Prince", is_owner: false },
+      ],
+    })
     expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("get_room_members", {
       room_id: roomId,
     })
