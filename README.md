@@ -138,12 +138,16 @@ at `/rooms/<room-id>`, Search at `/rooms/<room-id>/search`, and History at
 `/rooms/<room-id>/history`. The room selector and access checks are shared by
 all three routes. Requests and History currently show empty states.
 
-The Search tab uses `tmdb-ts` through `GET /api/movies/search?query=<title>`.
+The Search tab uses `tmdb-ts` through `GET /api/movies/search?query=<title>&page=1`.
 Set `TMDB_ACCESS_TOKEN` to your TMDB API Read Access Token in `.env.local` and
 your hosting environment. It is read only by server code and must never have a
 `NEXT_PUBLIC_` prefix. The API requires sign-in, accepts 2–200 characters, and
-returns TMDB's first page of movie results unchanged, alongside its genre list.
-`MovieSearchResultCard` displays titles, bracketed years, and genre badges.
+returns the requested page of TMDB movie results unchanged, alongside its genre
+list. The page defaults to 1 and must be an integer from 1 to 500. Previous and
+Next controls use `total_pages`; the count uses `total_results` across all pages.
+Changing the search text resets to page 1.
+`MovieSearchResultItem` uses shadcn Item to display titles, bracketed years,
+genre badges, and movie overviews.
 `MoviePoster` builds poster URLs and accepts a TMDB `size` (for example, `w342`),
 a CSS width via `className` (for example, `w-24`), and an image `sizes` hint.
 Upstream failures return a generic error without credentials or provider details.
