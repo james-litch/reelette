@@ -39,15 +39,25 @@ Useful local commands:
 ```bash
 npm run supabase-status       # Local service URLs and keys; keep output private
 npm run supabase-db-migrate   # Apply pending local migrations without a reset
+npm run supabase-db-seed      # Create/restore the member-removal test room
 npm run supabase-types        # Regenerate and format the public database types
 npm run supabase-db-test      # Run room/request SQL checks; fixtures roll back
 npm run supabase-stop         # Stop local services while preserving database data
 ```
 
 `npm run supabase-db-reset` deletes local database data, replays migrations, and
-runs `supabase/seed.sql`. The seed intentionally contains no real users or auth
-sessions; sign in with Google and create rooms through the app. The database
-tests create temporary fixtures themselves.
+runs `supabase/seed.sql`. The seed creates a **Test** room with
+`james.litchfield99@gmail.com` as owner and **Test Member**
+(`test-member@example.com`) as its other member. Sign in with the owner's Google
+account to test removing the member in room settings. The test user is a fixture
+and has no password; signing in as that user is not required.
+
+Existing accounts are reused by email without changing their profiles or login
+details. After a reset, the owner's confirmed email identity allows Google to
+link the account on sign-in. No OAuth tokens or sessions are seeded.
+Run `npm run supabase-db-seed` again to restore the test member after removing
+them, without resetting other local data. It also restores this fixture room's
+name and owner. The database tests create temporary fixtures themselves.
 
 These commands target the local stack. `npm run supabase-db-pull` explicitly
 reads the linked hosted schema; it does not apply your migrations to the host.
