@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, EllipsisVertical, Trash2 } from "lucide-react"
+import { Check, EllipsisVertical, ExternalLink, Trash2 } from "lucide-react"
 import { useState, useTransition } from "react"
 
 import {
@@ -19,6 +19,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Item, ItemContent, ItemTitle } from "@/components/ui/item"
+import { getLetterboxdUrl } from "@/lib/movies/links"
 import type { MovieRequest, RequestActionResult } from "@/lib/requests/types"
 
 export function MovieRequestItem({ request }: { request: MovieRequest }) {
@@ -70,7 +71,7 @@ export function MovieRequestItem({ request }: { request: MovieRequest }) {
             >
               <EllipsisVertical aria-hidden="true" />
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-44">
+            <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuGroup>
                 {!request.watched_at && (
                   <DropdownMenuItem
@@ -81,6 +82,21 @@ export function MovieRequestItem({ request }: { request: MovieRequest }) {
                     Mark as watched
                   </DropdownMenuItem>
                 )}
+                <DropdownMenuItem
+                  render={
+                    <a
+                      href={getLetterboxdUrl(request.tmdb_id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    />
+                  }
+                  nativeButton={false}
+                >
+                  <ExternalLink aria-hidden="true" />
+                  Letterboxd
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </DropdownMenuItem>
+
                 <DropdownMenuItem
                   variant="destructive"
                   onClick={() => manage(deleteRequest)}
