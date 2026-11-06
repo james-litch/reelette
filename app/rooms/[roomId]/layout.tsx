@@ -4,6 +4,7 @@ import { notFound, redirect } from "next/navigation"
 import { RoomSwitcher } from "@/components/rooms/room-switcher"
 import { RoomSettingsDialog } from "@/components/rooms/room-settings-dialog"
 import { RoomTabs } from "@/components/rooms/room-tabs"
+import { RoomRealtime } from "@/components/rooms/room-realtime"
 import { RoomsLoadError } from "@/components/rooms/rooms-load-error"
 import { getRoom, getRooms } from "@/lib/rooms/queries"
 import { getUser } from "@/lib/supabase/user"
@@ -31,7 +32,7 @@ export default async function RoomLayout({
       {error || !room ? (
         <RoomsLoadError href={`/rooms/${roomId}`} />
       ) : (
-        <>
+        <RoomRealtime key={room.id} roomId={room.id}>
           <div
             key={room.id}
             className="flex min-w-0 items-center justify-between gap-3"
@@ -47,7 +48,7 @@ export default async function RoomLayout({
           </div>
           {roomList.error && <RoomsLoadError href={`/rooms/${room.id}`} />}
           <RoomTabs roomId={room.id}>{children}</RoomTabs>
-        </>
+        </RoomRealtime>
       )}
     </main>
   )

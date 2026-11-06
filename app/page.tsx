@@ -33,10 +33,10 @@ export default async function Page({
         </p>
 
         {user ? (
-          <div className="mt-8 flex w-full max-w-xs flex-col gap-3 sm:max-w-sm sm:flex-row">
+          <div className="mt-8 flex w-full max-w-xs items-stretch gap-3 max-sm:flex-col sm:max-w-sm">
             <CreateRoomDialog
               trigger={
-                <Button size="lg" className="flex-1">
+                <Button size="lg" className="grow">
                   <Plus data-icon="inline-start" aria-hidden="true" />
                   Create Room
                 </Button>
@@ -46,7 +46,7 @@ export default async function Page({
               href="/rooms"
               className={cn(
                 buttonVariants({ size: "lg", variant: "outline" }),
-                "flex-1"
+                "grow"
               )}
             >
               My Rooms
