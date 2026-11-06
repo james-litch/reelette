@@ -135,6 +135,27 @@ describe("movie search API", () => {
     expect(options?.cache).toBe("no-store")
   })
 
+  it("caches the server-side genre lookup for 24 hours without caching search results", async () => {
+    await GET(request("Interstellar"))
+
+    const [url, options] = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/genre/movie/list")
+    )!
+    expect(new URL(String(url)).searchParams.get("language")).toBe("en-US")
+    expect(options).toMatchObject({
+      cache: "force-cache",
+      next: { revalidate: 86_400 },
+    })
+    expect(String(url)).not.toContain(token)
+    expect(new Headers(options?.headers).get("Authorization")).toBe(
+      `Bearer ${token}`
+    )
+    const [, searchOptions] = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/search/movie")
+    )!
+    expect(searchOptions?.cache).toBe("no-store")
+  })
+
   it("passes the requested page to TMDB and returns its pagination totals", async () => {
     fetchMock.mockResolvedValueOnce(
       Response.json({
@@ -208,14 +229,20 @@ describe("movie search API", () => {
     })
   })
 
-  it("forwards cancellation to both upstream requests", async () => {
+  it("cancels the movie search without aborting the shared genre lookup", async () => {
     const controller = new AbortController()
     await GET(request("Interstellar", controller.signal))
 
-    const signals = fetchMock.mock.calls.map(([, options]) => options?.signal)
+    const [, searchOptions] = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/search/movie")
+    )!
+    const [, genreOptions] = fetchMock.mock.calls.find(([url]) =>
+      String(url).includes("/genre/movie/list")
+    )!
     controller.abort()
 
-    expect(signals).toHaveLength(2)
-    expect(signals.every((signal) => signal?.aborted)).toBe(true)
+    expect(searchOptions?.signal?.aborted).toBe(true)
+    expect(genreOptions?.signal).toBeInstanceOf(AbortSignal)
+    expect(genreOptions?.signal?.aborted).toBe(false)
   })
 })

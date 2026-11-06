@@ -3,6 +3,7 @@ import "server-only"
 import { TMDB } from "tmdb-ts"
 
 import type { MovieSearchResponse } from "@/lib/movies/types"
+import { getMovieGenres } from "@/lib/tmdb/genres"
 
 export async function searchMovies(
   query: string,
@@ -19,14 +20,14 @@ export async function searchMovies(
       fetch(url, { ...init, signal: upstreamSignal, cache: "no-store" }),
   })
 
-  const [movies, { genres }] = await Promise.all([
+  const [movies, genres] = await Promise.all([
     tmdb.search.movies({
       query,
       page,
       include_adult: false,
       language: "en-US",
     }),
-    tmdb.genres.movies({ language: "en-US" }),
+    getMovieGenres(),
   ])
 
   return { ...movies, genres }
