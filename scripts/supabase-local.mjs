@@ -18,6 +18,55 @@ function runSupabase(args) {
 
 try {
   switch (process.argv[2]) {
+    case "seed": {
+      const envFile = new URL("../.env", import.meta.url)
+      if (existsSync(envFile)) process.loadEnvFile(envFile)
+      const email = process.env.SEED_OWNER_EMAIL?.trim().toLowerCase()
+      if (!email && process.argv.includes("--if-configured")) {
+        console.log("Skipping local fixtures: SEED_OWNER_EMAIL is not set.")
+        break
+      }
+      if (
+        !email ||
+        email.length > 254 ||
+        !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+        email === "test-member@example.com"
+      ) {
+        throw new Error(
+          "Set SEED_OWNER_EMAIL in .env to your Google email (different from the test member)."
+        )
+      }
+
+      const sql = readFileSync(
+        new URL("../supabase/seed.sql", import.meta.url),
+        "utf8"
+      )
+      execFileSync(
+        "docker",
+        [
+          "exec",
+          "-i",
+          "supabase_db_reelette",
+          "psql",
+          "--username",
+          "postgres",
+          "--dbname",
+          "postgres",
+          "--set",
+          "ON_ERROR_STOP=1",
+          "--variable",
+          `seed_owner_email=${email}`,
+        ],
+        {
+          cwd: root,
+          // psql quotes the variable as a SQL literal; never interpolate it into SQL.
+          input: `select set_config('reelette.seed_owner_email', :'seed_owner_email', false);\n${sql}`,
+          stdio: ["pipe", "pipe", "inherit"],
+        }
+      )
+      console.log("Created/restored the local test room and member.")
+      break
+    }
     case "env": {
       const status = JSON.parse(runSupabase(["status", "-o", "json"]))
       const url = new URL(status.API_URL)
@@ -63,7 +112,7 @@ try {
       break
     }
     default:
-      throw new Error("Usage: node scripts/supabase-local.mjs <env|types>")
+      throw new Error("Usage: node scripts/supabase-local.mjs <env|types|seed>")
   }
 } catch (error) {
   console.error(
