@@ -4,7 +4,11 @@ import { act, cleanup, renderHook } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { getRequestors } = vi.hoisted(() => ({ getRequestors: vi.fn() }))
+const realtime = vi.hoisted(() => ({ version: 0 }))
 vi.mock("@/app/rooms/[roomId]/requests-actions", () => ({ getRequestors }))
+vi.mock("@/components/rooms/room-realtime", () => ({
+  useRoomRequestsVersion: () => realtime.version,
+}))
 
 import { useRequestors } from "@/app/rooms/[roomId]/search/use-requestors"
 
@@ -18,10 +22,40 @@ function deferred() {
 
 beforeEach(() => {
   getRequestors.mockReset()
+  realtime.version = 0
 })
 afterEach(cleanup)
 
 describe("requestor names on the Search page", () => {
+  it("reloads names after a room event and drops names whose requests were deleted", async () => {
+    getRequestors
+      .mockResolvedValueOnce({ names: ["Jamie"] })
+      .mockResolvedValueOnce({ names: ["Taylor"] })
+    const { result, rerender } = renderHook(() => useRequestors("room"))
+    await act(async () => {})
+    expect(result.current.requestors.names).toEqual(["Jamie"])
+    realtime.version++
+    rerender()
+    await act(async () => {})
+    expect(result.current.requestors.names).toEqual(["Taylor"])
+    expect(getRequestors).toHaveBeenCalledTimes(2)
+  })
+
+  it("ignores stale refreshes while keeping names saved during the newest lookup", async () => {
+    const oldLoad = deferred()
+    const newLoad = deferred()
+    getRequestors
+      .mockReturnValueOnce(oldLoad.promise)
+      .mockReturnValueOnce(newLoad.promise)
+    const { result, rerender } = renderHook(() => useRequestors("room"))
+    realtime.version++
+    rerender()
+    act(() => result.current.addRequestor("Alex"))
+    await act(async () => newLoad.resolve({ names: ["Taylor"] }))
+    await act(async () => oldLoad.resolve({ names: ["Stale"] }))
+    expect(result.current.requestors.names).toEqual(["Alex", "Taylor"])
+  })
+
   it("loads once even in Strict Mode and reuses names across page rerenders", async () => {
     getRequestors.mockResolvedValue({ names: ["Jamie"] })
     const { result, rerender } = renderHook(() => useRequestors("room"), {

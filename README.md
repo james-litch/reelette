@@ -242,18 +242,47 @@ The colocated `useMovieSearch` hook debounces input by 350 ms, cancels previous
 requests, and ignores stale responses, including responses that finish while the
 next search is debouncing.
 
+Room requests update live across members using a private Supabase Realtime
+Broadcast channel per room. A database trigger sends an empty `requests_changed`
+notification after an insert, update (including marking watched), or delete.
+The shared room layout batches notifications for 100 ms, refreshes the current
+route's server data, and invalidates cached requestor suggestions on Search.
+This also works for empty rooms and History. Filters, search input and scroll
+position are preserved while their components remain mounted. Suggestions are
+replaced with the latest names, while keeping names saved during a lookup.
+
+Subscriptions refresh the data after joining/rejoining to catch missed changes,
+and when the browser comes back online, gains focus, or becomes visible.
+Subscriptions and queued refreshes are cleaned up when leaving the room.
+The channel's receive policy checks existing room access; clients cannot send
+these notifications. Movie details and names are always loaded through the
+existing RLS checks, rather than included in broadcast payloads. Realtime caches
+channel permissions until reauthorization, so removed members may still receive
+empty invalidations on an existing connection, but cannot fetch room data.
+
+Apply `supabase/migrations/20261106000000_realtime_movie_requests.sql` locally
+with `npm run supabase-db-migrate`, and to production with the migration
+workflow before deploying the app update. Realtime must be enabled in Supabase.
+For a project using only private channels, turn off **Allow public access** under
+Realtime Settings. Local Realtime is already enabled in `supabase/config.toml`.
+No new environment variables or service-role key are needed by the app.
+
 The generated schema is in `lib/supabase/database.types.ts`. After applying local
 schema changes, run `npm run supabase-types` and commit the updated types.
 The SQL regression checks in
 [`supabase/tests/rooms.sql`](supabase/tests/rooms.sql) and
 [`supabase/tests/movie-requests.sql`](supabase/tests/movie-requests.sql), and
-[`supabase/tests/room-members.sql`](supabase/tests/room-members.sql) verify
+[`supabase/tests/room-members.sql`](supabase/tests/room-members.sql), and
+[`supabase/tests/realtime-requests.sql`](supabase/tests/realtime-requests.sql) verify
 ownership, anonymous access, name constraints, requestor suggestions, watched
 status, deletion, immutable movie metadata, invite expiry/rotation, and member
-permissions. Run them in a test database
+permissions, private broadcasts and room-channel authorization. Run them in a test database
 after the migration with `npm run supabase-db-test`; their fixtures are wrapped
 in a transaction and rolled back. The test command uses `psql` inside the local
 `supabase_db_reelette` Docker container, so no host PostgreSQL install is needed.
+The Realtime SQL test uses the local administrative database role only to create
+a daily message partition when a fresh CI database has no running Realtime
+service. Its partition and fixtures roll back with the test transaction.
 
 ## Checks
 

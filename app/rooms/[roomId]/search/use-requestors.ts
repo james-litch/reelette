@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react"
 
 import { getRequestors } from "@/app/rooms/[roomId]/requests-actions"
+import { useRoomRequestsVersion } from "@/components/rooms/room-realtime"
 
 function uniqueNames(names: string[]) {
   const seen = new Set<string>()
@@ -17,6 +18,7 @@ function uniqueNames(names: string[]) {
 }
 
 export function useRequestors(roomId: string) {
+  const version = useRoomRequestsVersion(roomId)
   const [state, setState] = useState<{
     roomId: string
     names: string[]
@@ -25,29 +27,38 @@ export function useRequestors(roomId: string) {
   }>({ roomId, names: [], loading: true })
   const load = useRef<{
     roomId: string
+    version: number
+    addedNames: string[]
     promise: ReturnType<typeof getRequestors>
   } | null>(null)
 
   useEffect(() => {
     let active = true
     // Reuse the load during Strict Mode's effect replay too.
-    if (load.current?.roomId !== roomId) {
-      load.current = { roomId, promise: getRequestors(roomId) }
+    if (load.current?.roomId !== roomId || load.current.version !== version) {
+      load.current = {
+        roomId,
+        version,
+        addedNames: [],
+        promise: getRequestors(roomId),
+      }
     }
+    const currentLoad = load.current
     const apply = (result: { names: string[]; error?: string }) => {
       if (!active) return
       setState((current) => ({
         ...result,
         roomId,
         loading: false,
-        // A save can finish before the initial name lookup does.
+        // Keep saves that finish during this lookup, but drop deleted remote names.
         names: uniqueNames([
           ...result.names,
-          ...(current.roomId === roomId ? current.names : []),
+          ...currentLoad.addedNames,
+          ...(result.error && current.roomId === roomId ? current.names : []),
         ]),
       }))
     }
-    load.current.promise.then(apply, () =>
+    currentLoad.promise.then(apply, () =>
       apply({
         names: [],
         error: "Previous names couldn’t be loaded. You can still enter a name.",
@@ -56,11 +67,12 @@ export function useRequestors(roomId: string) {
     return () => {
       active = false
     }
-  }, [roomId])
+  }, [roomId, version])
 
   function addRequestor(value: string) {
     const name = value.trim()
     if (!name) return
+    if (load.current?.roomId === roomId) load.current.addedNames.push(name)
     setState((current) => ({
       ...(current.roomId === roomId ? current : { roomId, loading: true }),
       names: uniqueNames([
