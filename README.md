@@ -253,6 +253,9 @@ returns the requested page of TMDB movie results unchanged, alongside its genre
 list. The page defaults to 1 and must be an integer from 1 to 500. Previous and
 Next controls use `total_pages`; the count uses `total_results` across all pages.
 Changing the search text resets to page 1.
+`getMovieGenres()` caches the English genre list on the server with a 24-hour
+revalidation interval. Movie searches remain uncached and cancellable; cancelling
+a search does not abort the shared genre lookup, which has its own 10-second timeout.
 `MovieSearchResultItem` uses shadcn Item to display titles, bracketed years,
 genre badges, and movie overviews.
 `MoviePoster` builds poster URLs and accepts a TMDB `size` (for example, `w342`),
