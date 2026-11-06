@@ -20,6 +20,7 @@ import {
   acceptRoomInvite,
   createRoomInvite,
   getRoomMembers,
+  removeRoomMember,
 } from "@/app/rooms/[roomId]/invite-actions"
 import { rememberRoomInvite } from "@/app/invites/actions"
 
@@ -101,6 +102,28 @@ describe("room invites and members", () => {
     })
     expect(mocks.revalidatePath).toHaveBeenCalledWith("/rooms", "layout")
   })
+  it("removes a member through the owner-checked function and refreshes room access", async () => {
+    mocks.rpc.mockResolvedValue({ data: true, error: null })
+    expect(await removeRoomMember(roomId, token)).toEqual({ success: true })
+    expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith("remove_room_member", {
+      room_id: roomId,
+      member_id: token,
+    })
+    expect(mocks.revalidatePath).toHaveBeenCalledWith("/rooms", "layout")
+  })
+  it.each([
+    { data: null, error: { message: "private permission detail" } },
+    { data: false, error: null },
+  ])(
+    "does not claim removal succeeded when the database denies it (%s)",
+    async (result) => {
+      mocks.rpc.mockResolvedValue(result)
+      expect(await removeRoomMember(roomId, token)).toEqual({
+        error: "We couldn’t remove this member. Please try again.",
+      })
+      expect(mocks.revalidatePath).not.toHaveBeenCalled()
+    }
+  )
   it("returns a friendly error for expired or replaced invites without redirecting", async () => {
     mocks.rpc.mockResolvedValue({ data: null, error: { message: "expired" } })
     expect(await acceptRoomInvite(token)).toHaveProperty("error")
@@ -111,6 +134,8 @@ describe("room invites and members", () => {
     expect(await createRoomInvite("bad")).toHaveProperty("error")
     expect(await getRoomMembers("bad")).toHaveProperty("error")
     expect(await acceptRoomInvite("bad")).toHaveProperty("error")
+    expect(await removeRoomMember("bad", token)).toHaveProperty("error")
+    expect(await removeRoomMember(roomId, "bad")).toHaveProperty("error")
     expect(mocks.createClient).not.toHaveBeenCalled()
   })
   it.each([null, { id: "unverified" }])(
@@ -123,6 +148,7 @@ describe("room invites and members", () => {
       expect(await createRoomInvite(roomId)).toHaveProperty("error")
       expect(await getRoomMembers(roomId)).toHaveProperty("error")
       expect(await acceptRoomInvite(token)).toHaveProperty("error")
+      expect(await removeRoomMember(roomId, token)).toHaveProperty("error")
       expect(mocks.rpc).not.toHaveBeenCalled()
     }
   )
@@ -130,6 +156,9 @@ describe("room invites and members", () => {
     mocks.createClient.mockRejectedValue(new Error("secret"))
     expect(await createRoomInvite(roomId)).toHaveProperty("error")
     expect(await getRoomMembers(roomId)).toHaveProperty("error")
+    expect(await removeRoomMember(roomId, token)).toEqual({
+      error: "We couldn’t remove this member. Please try again.",
+    })
     expect(await acceptRoomInvite(token)).toEqual({
       error: "We couldn’t join the room. Please try again.",
     })

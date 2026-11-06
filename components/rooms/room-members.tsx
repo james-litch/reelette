@@ -1,11 +1,12 @@
 "use client"
 
-import { Copy, Link2, LoaderCircle } from "lucide-react"
+import { Copy, Link2, LoaderCircle, Trash2 } from "lucide-react"
 import { useEffect, useId, useState, useTransition } from "react"
 
 import {
   createRoomInvite,
   getRoomMembers,
+  removeRoomMember,
 } from "@/app/rooms/[roomId]/invite-actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -50,6 +51,10 @@ export function RoomMembers({
   const [inviteError, setInviteError] = useState<string>()
   const [copyStatus, setCopyStatus] = useState<string>()
   const [pending, startTransition] = useTransition()
+  const [removing, startRemoving] = useTransition()
+  const [removingId, setRemovingId] = useState<string>()
+  const [removeError, setRemoveError] = useState<string>()
+  const [removeStatus, setRemoveStatus] = useState<string>()
 
   useEffect(() => {
     if (!active) return
@@ -94,6 +99,32 @@ export function RoomMembers({
           )
       } catch {
         setInviteError("We couldn’t create an invite link. Please try again.")
+      }
+    })
+  }
+
+  function removeMember(member: RoomMember) {
+    if (!isOwner || member.is_owner || removing) return
+    setRemovingId(member.user_id)
+    setRemoveError(undefined)
+    setRemoveStatus(undefined)
+    startRemoving(async () => {
+      try {
+        const result = await removeRoomMember(roomId, member.user_id)
+        if (result.success) {
+          setMembers((current) =>
+            current.filter((item) => item.user_id !== member.user_id)
+          )
+          setRemoveStatus(`${member.name} was removed from the room.`)
+        } else {
+          setRemoveError(
+            result.error ?? "We couldn’t remove this member. Please try again."
+          )
+        }
+      } catch {
+        setRemoveError("We couldn’t remove this member. Please try again.")
+      } finally {
+        setRemovingId(undefined)
       }
     })
   }
@@ -144,10 +175,36 @@ export function RoomMembers({
                   <Badge variant={member.is_owner ? "default" : "secondary"}>
                     {member.is_owner ? "Owner" : "Member"}
                   </Badge>
+                  {isOwner && !member.is_owner && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      aria-label={`Remove ${member.name} from room`}
+                      disabled={removing}
+                      aria-busy={removing && removingId === member.user_id}
+                      onClick={() => removeMember(member)}
+                    >
+                      {removing && removingId === member.user_id ? (
+                        <LoaderCircle
+                          className="animate-spin"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Trash2 aria-hidden="true" />
+                      )}
+                    </Button>
+                  )}
                 </ItemActions>
               </Item>
             ))}
           </ItemGroup>
+        )}
+        {removeError && <FieldError>{removeError}</FieldError>}
+        {removeStatus && (
+          <p role="status" className="text-sm text-muted-foreground">
+            {removeStatus}
+          </p>
         )}
       </section>
       {isOwner && (

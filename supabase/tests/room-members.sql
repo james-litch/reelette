@@ -118,6 +118,21 @@ begin
     raise exception 'Members must not remove or alter memberships';
   exception when insufficient_privilege then null;
   end;
+  begin
+    perform public.remove_room_member(current_setting('test.room')::uuid, current_setting('test.owner')::uuid);
+    raise exception 'Members must not remove the owner via RPC';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.remove_room_member(current_setting('test.room')::uuid, auth.uid());
+    raise exception 'Members must not call owner-only removal even for themselves';
+  exception when insufficient_privilege then null;
+  end;
+  begin
+    perform public.remove_room_member(current_setting('test.private_room')::uuid, current_setting('test.outsider')::uuid);
+    raise exception 'Outsiders must not remove members from other rooms';
+  exception when insufficient_privilege then null;
+  end;
 end $$;
 
 -- Owners can rotate; the old bearer link stops working, without removing members.
@@ -172,6 +187,56 @@ begin
   end if;
 end $$;
 
+-- Removing a membership revokes access and preserves requests and other rooms.
+reset role;
+insert into public.room_members (room_id, user_id)
+  values (current_setting('test.private_room')::uuid, current_setting('test.member')::uuid);
+update public.movie_requests set watched_at = now() where room_id = current_setting('test.room')::uuid;
+set local role authenticated;
+select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.owner'), 'role', 'authenticated')::text, true);
+do $$
+begin
+  begin
+    perform public.remove_room_member(current_setting('test.room')::uuid, auth.uid());
+    raise exception 'Owners must not remove themselves';
+  exception when invalid_parameter_value then null; end;
+  perform public.remove_room_member(current_setting('test.room')::uuid, current_setting('test.member')::uuid);
+  perform public.remove_room_member(current_setting('test.room')::uuid, current_setting('test.member')::uuid);
+  if exists (select 1 from public.get_room_members(current_setting('test.room')::uuid)
+    where user_id = current_setting('test.member')::uuid) then
+    raise exception 'Removed members must disappear from the member list';
+  end if;
+  if not exists (select 1 from public.movie_requests where room_id = current_setting('test.room')::uuid and watched_at is not null) then
+    raise exception 'Removing a member must preserve their requests and history';
+  end if;
+end $$;
+select set_config('request.jwt.claims', json_build_object('sub', current_setting('test.member'), 'role', 'authenticated')::text, true);
+do $$
+begin
+  if exists (select 1 from public.rooms where id = current_setting('test.room')::uuid)
+    or exists (select 1 from public.movie_requests where room_id = current_setting('test.room')::uuid) then
+    raise exception 'Removed members must lose room and movie access immediately';
+  end if;
+  if not exists (select 1 from public.rooms where id = current_setting('test.private_room')::uuid) then
+    raise exception 'Removal must leave other room memberships intact';
+  end if;
+  update public.rooms set name = 'Forbidden' where id = current_setting('test.room')::uuid;
+  if found then raise exception 'Removed members must not rename rooms'; end if;
+  update public.movie_requests set watched_at = now() where room_id = current_setting('test.room')::uuid;
+  if found then raise exception 'Removed members must not mark movies watched'; end if;
+  delete from public.movie_requests where room_id = current_setting('test.room')::uuid;
+  if found then raise exception 'Removed members must not delete movies'; end if;
+  begin
+    insert into public.movie_requests (room_id, tmdb_id, title, requestor_name)
+      values (current_setting('test.room')::uuid, 99, 'Forbidden', 'Removed member');
+    raise exception 'Removed members must not add movies';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform * from public.get_room_members(current_setting('test.room')::uuid);
+    raise exception 'Removed members must not list room users';
+  exception when insufficient_privilege then null; end;
+end $$;
+
 set local role anon;
 select set_config('request.jwt.claims', '{}', true);
 do $$
@@ -187,6 +252,9 @@ begin
   exception when insufficient_privilege then null; end;
   begin perform * from public.create_room_invite(current_setting('test.room')::uuid);
     raise exception 'Anonymous users must not create invites';
+  exception when insufficient_privilege then null; end;
+  begin perform public.remove_room_member(current_setting('test.room')::uuid, current_setting('test.member')::uuid);
+    raise exception 'Anonymous users must not remove members';
   exception when insufficient_privilege then null; end;
 end $$;
 

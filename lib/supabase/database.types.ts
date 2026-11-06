@@ -169,6 +169,10 @@ export type Database = {
           name: string
         }[]
       }
+      remove_room_member: {
+        Args: { member_id: string; room_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
