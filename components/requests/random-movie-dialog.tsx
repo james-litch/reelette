@@ -1,6 +1,6 @@
 "use client"
 
-import { Check, LoaderCircle, Shuffle } from "lucide-react"
+import { Check, ExternalLink, LoaderCircle, Shuffle } from "lucide-react"
 import { useState, useTransition, type RefObject } from "react"
 
 import { markRequestWatched } from "@/app/rooms/[roomId]/requests-actions"
@@ -16,6 +16,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { getLetterboxdUrl } from "@/lib/movies/links"
 import type { MovieRequest } from "@/lib/requests/types"
 
 export function RandomMovieDialog({
@@ -92,6 +93,22 @@ export function RandomMovieDialog({
             <p className="text-sm text-muted-foreground">
               Requested by {request.requestor_name}
             </p>
+            <Button
+              variant="link"
+              size="sm"
+              nativeButton={false}
+              render={
+                <a
+                  href={getLetterboxdUrl(request.tmdb_id)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                />
+              }
+            >
+              <ExternalLink data-icon="inline-start" aria-hidden="true" />
+              Letterboxd
+              <span className="sr-only"> (opens in a new tab)</span>
+            </Button>
           </div>
         </div>
         {error && (
